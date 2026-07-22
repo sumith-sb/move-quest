@@ -70,8 +70,10 @@ export function LeaderboardScreen({ userId, onOpenMenu }: Props) {
     }
   }, [])
 
-  const podium = [0, 1, 2].map((i) => entries[i] ?? null)
+  const MIN_ROWS = 5
+  const top = entries.slice(0, 3)
   const rest = entries.slice(3)
+  const ghostCount = Math.max(0, MIN_ROWS - entries.length)
 
   return (
     <section className="screen board-screen" aria-labelledby="board-title">
@@ -113,10 +115,10 @@ export function LeaderboardScreen({ userId, onOpenMenu }: Props) {
           </div>
         </>
       ) : (
-        <>
-          <ol className="podium">
-            {podium.map((entry, i) =>
-              entry ? (
+        <div className="board-stack">
+          {top.length > 0 ? (
+            <ol className="podium">
+              {top.map((entry, i) => (
                 <li
                   key={entry.userId}
                   className={`podium-slot ${MEDAL[i]} ${entry.userId === userId ? 'is-me' : ''}`}
@@ -129,15 +131,9 @@ export function LeaderboardScreen({ userId, onOpenMenu }: Props) {
                   <span className="podium-points">{entry.totalPoints}</span>
                   <span className="podium-sub">{entry.acceptedCount} moves</span>
                 </li>
-              ) : (
-                <li key={`open-${i}`} className={`podium-slot ${MEDAL[i]} is-skeleton`}>
-                  <span className="podium-rank">{i + 1}</span>
-                  <span className="podium-open">Up for grabs</span>
-                  <Skeleton width={40} height={22} radius={8} />
-                </li>
-              ),
-            )}
-          </ol>
+              ))}
+            </ol>
+          ) : null}
 
           {rest.length > 0 ? (
             <ol className="board-list">
@@ -159,7 +155,15 @@ export function LeaderboardScreen({ userId, onOpenMenu }: Props) {
               })}
             </ol>
           ) : null}
-        </>
+
+          {ghostCount > 0 ? (
+            <div className="board-ghosts" aria-hidden="true">
+              {Array.from({ length: ghostCount }).map((_, i) => (
+                <div key={i} className="board-ghost" />
+              ))}
+            </div>
+          ) : null}
+        </div>
       )}
     </section>
   )

@@ -156,15 +156,24 @@ export function SettingsScreen({ user, settings, onChange, onOpenMenu }: Props) 
         <ul className="fact-list">
           <li>
             <span className="fact-icon"><Footprints size={16} strokeWidth={2} /></span>
-            Completing a move earns points. A bigger effort earns a bit more.
+            <span className="fact-text">
+              <span className="fact-lead">Earn points for moving</span>
+              <span className="fact-detail">A bigger effort earns a bit more.</span>
+            </span>
           </li>
           <li>
             <span className="fact-icon"><Heart size={16} strokeWidth={2} /></span>
-            Every emoji reaction your post gets earns you +2 points.
+            <span className="fact-text">
+              <span className="fact-lead">+2 per reaction</span>
+              <span className="fact-detail">Every emoji your post gets adds to your score.</span>
+            </span>
           </li>
           <li>
             <span className="fact-icon"><CalendarClock size={16} strokeWidth={2} /></span>
-            The leaderboard resets every Monday.
+            <span className="fact-text">
+              <span className="fact-lead">Fresh start weekly</span>
+              <span className="fact-detail">The board resets every Monday.</span>
+            </span>
           </li>
         </ul>
       </div>
