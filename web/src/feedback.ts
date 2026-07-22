@@ -46,7 +46,7 @@ export const cue = {
     buzz(10)
   },
   nav: () => {
-    void play('page')
+    void play('bloom')
     buzz(6)
   },
   tick: () => {
