@@ -38,10 +38,9 @@ export async function readStore(): Promise<StoreData> {
     const raw = await readFile(STORE_PATH, 'utf8')
     const parsed = JSON.parse(raw) as StoreData
     return {
-      // Normalize older records that predate desk room + cooldown fields.
+      // Normalize older records that predate the cooldown field.
       users: (parsed.users ?? []).map((u) => ({
         ...u,
-        deskRoom: u.deskRoom ?? null,
         cooldownUntil: u.cooldownUntil ?? null,
       })),
       attempts: parsed.attempts ?? [],

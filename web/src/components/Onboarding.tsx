@@ -1,20 +1,17 @@
 import { useState, type FormEvent } from 'react'
-import { DESK_ROOMS, ROOM_EMOJI, ROOM_LABEL } from '../labels'
-import type { Room } from '../types'
 
 interface Props {
   busy: boolean
   error: string | null
-  onSubmit: (displayName: string, deskRoom: Room | null) => void
+  onSubmit: (displayName: string) => void
 }
 
 export function Onboarding({ busy, error, onSubmit }: Props) {
   const [name, setName] = useState('')
-  const [deskRoom, setDeskRoom] = useState<Room | null>(null)
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    onSubmit(name.trim(), deskRoom)
+    onSubmit(name.trim())
   }
 
   return (
@@ -40,30 +37,6 @@ export function Onboarding({ busy, error, onSubmit }: Props) {
           disabled={busy}
           required
         />
-
-        <fieldset className="room-picker" disabled={busy}>
-          <legend>Where&apos;s your desk?</legend>
-          <p className="room-picker-hint">
-            We&apos;ll never send you a challenge here — the whole point is to
-            get you somewhere else.
-          </p>
-          <div className="room-options" role="radiogroup" aria-label="Your desk room">
-            {DESK_ROOMS.map((room) => (
-              <button
-                key={room}
-                type="button"
-                role="radio"
-                aria-checked={deskRoom === room}
-                className={`room-option ${deskRoom === room ? 'selected' : ''}`}
-                onClick={() => setDeskRoom((cur) => (cur === room ? null : room))}
-              >
-                <span aria-hidden="true">{ROOM_EMOJI[room]}</span>
-                {ROOM_LABEL[room]}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-
         {error ? (
           <p className="banner error" role="alert">
             {error}

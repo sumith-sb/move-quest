@@ -26,7 +26,6 @@ import type {
   Attempt,
   FeedPost,
   LeaderboardEntry,
-  Room,
   StoreData,
   User,
 } from './types.js'
@@ -41,15 +40,6 @@ const COOLDOWN_MS = Math.max(0, COOLDOWN_MINUTES) * 60 * 1000
 
 /** The curated reaction set — small and meaningful, not a full emoji picker. */
 const REACTION_EMOJIS = ['👏', '🔥', '🌿', '💧', '😌'] as const
-
-const VALID_ROOMS: Room[] = [
-  'kitchen',
-  'window',
-  'outdoors',
-  'hallway',
-  'lounge',
-  'anywhere',
-]
 
 type SseClient = {
   id: string
@@ -206,12 +196,6 @@ export function createApp() {
       return
     }
 
-    const rawDeskRoom = req.body?.deskRoom
-    const deskRoom: Room | null =
-      typeof rawDeskRoom === 'string' && VALID_ROOMS.includes(rawDeskRoom as Room)
-        ? (rawDeskRoom as Room)
-        : null
-
     try {
       const user = await updateStore((store) => {
         const taken = store.users.some(
@@ -226,7 +210,6 @@ export function createApp() {
           id: randomUUID(),
           displayName,
           createdAt: nowIso(),
-          deskRoom,
           cooldownUntil: null,
         }
         store.users.push(created)
@@ -286,7 +269,7 @@ export function createApp() {
         .filter((a) => a.userId === userId && a.status === 'accepted')
         .map((a) => a.challengeId),
     )
-    const drawn = drawTriad(completed, user.deskRoom)
+    const drawn = drawTriad(completed)
     res.json({
       challenges: drawn.map(toPublicChallenge),
       remaining: remainingCount(completed),

@@ -50,8 +50,6 @@ export interface User {
   id: string
   displayName: string
   createdAt: string
-  /** The room the user works in — excluded from their challenge draws. */
-  deskRoom: Room | null
   /** Movement cooldown: no new challenge or post until this passes. */
   cooldownUntil: string | null
 }

@@ -1,4 +1,4 @@
-import type { Challenge, Difficulty, PublicChallenge, Room } from './types.js'
+import type { Challenge, Difficulty, PublicChallenge } from './types.js'
 
 /**
  * Move Quest's soul lives here: meaningful, photogenic prompts that get you
@@ -153,13 +153,11 @@ function pickOne<T>(items: T[], random: () => number): T | undefined {
 
 /**
  * Draw exactly one Easy, one Medium, and one Hard challenge — the movement
- * ladder. Completed challenges and the user's desk room are excluded; if a
- * tier has nothing left outside the desk room, the desk-room filter is relaxed
- * for that tier so the user always gets three options while any remain.
+ * ladder (quick / another room / step outside). Completed challenges are
+ * excluded; a tier with nothing left simply contributes no card.
  */
 export function drawTriad(
   excludeIds: Iterable<string>,
-  deskRoom: Room | null,
   random: () => number = Math.random,
 ): Challenge[] {
   const excluded = new Set(excludeIds)
@@ -169,10 +167,7 @@ export function drawTriad(
     const tier = CHALLENGES.filter(
       (c) => c.active && c.difficulty === difficulty && !excluded.has(c.id),
     )
-    const awayFromDesk = deskRoom
-      ? tier.filter((c) => c.room !== deskRoom)
-      : tier
-    const chosen = pickOne(awayFromDesk.length ? awayFromDesk : tier, random)
+    const chosen = pickOne(tier, random)
     if (chosen) result.push(chosen)
   }
 

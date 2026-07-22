@@ -43,7 +43,7 @@ function validPassVerdict(): ModelVerdict {
 
 describe('drawTriad', () => {
   it('returns one easy, one medium, and one hard challenge', () => {
-    const drawn = drawTriad([], null, () => 0.42)
+    const drawn = drawTriad([], () => 0.42)
     assert.equal(drawn.length, 3)
     assert.deepEqual(
       drawn.map((c) => c.difficulty),
@@ -52,19 +52,12 @@ describe('drawTriad', () => {
   })
 
   it('excludes completed challenge ids', () => {
-    const first = drawTriad([], null, () => 0)
+    const first = drawTriad([], () => 0)
     const exclude = first.map((c) => c.id)
-    const drawn = drawTriad(exclude, null, () => 0)
+    const drawn = drawTriad(exclude, () => 0)
     for (const c of drawn) {
       assert.equal(exclude.includes(c.id), false)
     }
-  })
-
-  it('excludes the desk room when an alternative exists in the tier', () => {
-    // Easy tier: kitchen (water), window (view), lounge (plant).
-    const drawn = drawTriad([], 'kitchen', () => 0)
-    const easy = drawn.find((c) => c.difficulty === 'easy')
-    assert.notEqual(easy?.room, 'kitchen')
   })
 })
 
@@ -141,7 +134,6 @@ describe('json store', () => {
         id: 'u1',
         displayName: 'Tester',
         createdAt: '2026-01-01T00:00:00.000Z',
-        deskRoom: null,
         cooldownUntil: null,
       })
     })
@@ -158,7 +150,6 @@ describe('json store', () => {
         id: 'u1',
         displayName: 'Scorer',
         createdAt: '2026-01-01T00:00:00.000Z',
-        deskRoom: null,
         cooldownUntil: null,
       })
       store.attempts.push({

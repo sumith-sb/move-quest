@@ -5,7 +5,6 @@ import type {
   FeedPost,
   LeaderboardEntry,
   ReactionSummary,
-  Room,
   Score,
   User,
   VerifyResult,
@@ -40,14 +39,11 @@ function authHeaders(userId?: string | null): HeadersInit {
   return userId ? { 'x-user-id': userId } : {}
 }
 
-export async function createProfile(
-  displayName: string,
-  deskRoom: Room | null,
-): Promise<User> {
+export async function createProfile(displayName: string): Promise<User> {
   const res = await fetch('/api/profile', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ displayName, deskRoom }),
+    body: JSON.stringify({ displayName }),
   })
   const data = await parseJson<{ user: User }>(res)
   return data.user

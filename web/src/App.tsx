@@ -18,7 +18,6 @@ import { ResultScreen } from './components/ResultScreen'
 import type {
   AttemptSummary,
   Challenge,
-  Room,
   Score,
   Screen,
   User,
@@ -72,11 +71,11 @@ export default function App() {
     }
   }, [refreshDraw])
 
-  async function handleJoin(displayName: string, deskRoom: Room | null) {
+  async function handleJoin(displayName: string) {
     setBusy(true)
     setError(null)
     try {
-      const created = await createProfile(displayName, deskRoom)
+      const created = await createProfile(displayName)
       storeUserId(created.id)
       setUser(created)
       setScore({

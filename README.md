@@ -1,8 +1,8 @@
 # Move Quest
 
 An internal "get off your chair" app. Each day you get **three photo
-challenges — one Easy, one Medium, one Hard** — that move you away from your
-desk (the room you mark as your desk is excluded). Pick one, take a live photo,
+challenges — one Easy, one Medium, one Hard** — that get you up and moving to a
+specific spot (the kitchen, a window, outside…). Pick one, take a live photo,
 and it posts to a shared team **Feed** where colleagues react and comment. After
 each move a **cooldown** paces you so it's roughly once an hour, not every
 minute — no reshuffling, no spamming.

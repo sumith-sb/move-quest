@@ -24,15 +24,6 @@ export const ROOM_EMOJI: Record<Room, string> = {
   anywhere: '✨',
 }
 
-/** The rooms a user can mark as their desk during onboarding. */
-export const DESK_ROOMS: Room[] = [
-  'lounge',
-  'kitchen',
-  'window',
-  'hallway',
-  'anywhere',
-]
-
 export function timeAgo(iso: string, now = Date.now()): string {
   const diff = Math.max(0, now - new Date(iso).getTime())
   const mins = Math.floor(diff / 60000)
