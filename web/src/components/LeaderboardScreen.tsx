@@ -68,10 +68,14 @@ export function LeaderboardScreen({ userId, onBack }: Props) {
         </div>
       ) : (
         <ol className="board-list">
-          {entries.map((entry) => {
+          {entries.map((entry, index) => {
             const mine = entry.userId === userId
             return (
-              <li key={entry.userId} className={mine ? 'is-me' : undefined}>
+              <li
+                key={entry.userId}
+                className={mine ? 'is-me' : undefined}
+                style={{ animationDelay: `${Math.min(index, 8) * 50}ms` }}
+              >
                 <span className="rank">#{entry.rank}</span>
                 <div className="board-main">
                   <strong>

@@ -33,8 +33,8 @@ export function ChallengePicker({
     <section className="screen challenges-screen" aria-labelledby="pick-title">
       <header className="topbar">
         <div>
-          <p className="eyebrow">Today&apos;s moves</p>
-          <h1 id="pick-title">Pick one</h1>
+          <p className="eyebrow">Today&apos;s Moves</p>
+          <h1 id="pick-title">Pick One</h1>
         </div>
         <button type="button" className="ghost-btn" onClick={onOpenBoard}>
           Board
@@ -63,7 +63,7 @@ export function ChallengePicker({
       ) : (
         <ul className="challenge-list">
           {challenges.map((challenge, index) => (
-            <li key={challenge.id} style={{ animationDelay: `${index * 80}ms` }}>
+            <li key={challenge.id} style={{ animationDelay: `${index * 60}ms` }}>
               <button
                 type="button"
                 className={`challenge-card difficulty-${challenge.difficulty}`}
