@@ -659,6 +659,10 @@ h2 {
   color: var(--gs-green);
 }
 
+:root[data-theme='dark'] .tone-success h1 {
+  color: var(--accent);
+}
+
 .tone-fail h1 {
   color: var(--gs-peach);
 }
