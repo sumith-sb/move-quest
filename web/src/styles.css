@@ -1652,13 +1652,13 @@ h2 {
 
 /* --- Onboarding animated demos -------------------------------------------- */
 .oa {
-  width: min(280px, 82vw);
-  height: 156px;
+  width: min(300px, 84vw);
+  height: 184px;
   margin: 0.5rem auto 0.25rem;
   position: relative;
 }
 
-/* Moves cycler */
+/* Moves cycler — a full challenge card, previewing the real UI */
 .oa-cycler {
   position: relative;
   width: 100%;
@@ -1675,30 +1675,73 @@ h2 {
   inset: 0;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 0.65rem;
-  padding: 1.2rem;
+  justify-content: space-between;
+  align-items: stretch;
+  text-align: left;
+  padding: 1.1rem 1.15rem;
   opacity: 0;
   animation: oaCycle 6s var(--ease-in-out) infinite;
 }
 
-.oa-chip {
-  display: inline-grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-md);
-  background: rgba(54, 73, 60, 0.08);
-  color: var(--gs-green);
+.oa-line-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-.oa-prompt {
+.oa-difftag {
   font-family: var(--font-display);
   font-weight: 500;
-  font-size: 1.2rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  background: rgba(54, 73, 60, 0.06);
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-pill);
+}
+
+.oa-points-tag {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 0.85rem;
+  color: var(--fg-inverse);
+  background: var(--gs-green);
+  padding: 0.15rem 0.6rem;
+  border-radius: var(--radius-pill);
+}
+
+.oa-line-mid {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.oa-move-title {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 1.35rem;
+  line-height: 1.1;
   color: var(--fg);
-  text-align: left;
+}
+
+.oa-move-prompt {
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--fg-muted);
+}
+
+.oa-chip-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  align-self: flex-start;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 0.75rem;
+  color: var(--fg-muted);
+  background: rgba(54, 73, 60, 0.06);
+  padding: 0.28rem 0.65rem;
+  border-radius: var(--radius-pill);
 }
 
 @keyframes oaCycle {
@@ -1716,7 +1759,7 @@ h2 {
 
 .oa-mini {
   flex: 1;
-  height: 108px;
+  height: 150px;
   border-radius: var(--radius-md);
   background: var(--bg-elevated);
   border: 1.5px solid var(--line);
@@ -1753,8 +1796,8 @@ h2 {
 
 /* Reactions landing */
 .oa-react-card {
-  width: min(280px, 82vw);
-  height: 156px;
+  width: min(300px, 84vw);
+  height: 184px;
   margin: 0.5rem auto 0.25rem;
   border-radius: var(--radius-lg);
   background: var(--bg-elevated);
