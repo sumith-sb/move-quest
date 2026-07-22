@@ -1,4 +1,5 @@
 import { Plus, Shuffle, Upload } from 'lucide-react'
+import { iconForChallenge } from '../challengeIcon'
 import { formatDuration, useCountdown } from '../countdown'
 import type { Challenge } from '../types'
 import { MenuButton } from './NavMenu'
@@ -78,7 +79,9 @@ export function ChallengePicker({
       ) : (
         <>
           <ul className="challenge-list">
-            {challenges.map((challenge, index) => (
+            {challenges.map((challenge, index) => {
+              const Icon = iconForChallenge(challenge)
+              return (
               <li key={challenge.id} style={{ animationDelay: `${index * 60}ms` }}>
                 <button
                   type="button"
@@ -86,6 +89,9 @@ export function ChallengePicker({
                   disabled={busyId !== null}
                   onClick={() => onPick(challenge)}
                 >
+                  <span className="card-icon" aria-hidden="true">
+                    <Icon size={20} strokeWidth={2} />
+                  </span>
                   <h2>{challenge.title}</h2>
                   <p>{challenge.prompt}</p>
                   <div className="card-foot">
@@ -96,7 +102,8 @@ export function ChallengePicker({
                   </div>
                 </button>
               </li>
-            ))}
+              )
+            })}
           </ul>
 
           <div className="picker-actions">

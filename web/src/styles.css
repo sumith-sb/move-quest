@@ -381,6 +381,16 @@ h2 {
   transition-duration: var(--dur-fast);
 }
 
+.card-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: rgba(54, 73, 60, 0.06);
+  color: var(--gs-green);
+}
+
 .card-meta {
   display: flex;
   justify-content: space-between;
@@ -2110,12 +2120,14 @@ h2 {
 [data-theme='dark'] .room-chip,
 [data-theme='dark'] .diff-pill,
 [data-theme='dark'] .fact-icon,
+[data-theme='dark'] .card-icon,
 [data-theme='dark'] .oa-chip,
 [data-theme='dark'] .oa-difftag {
   background: rgba(244, 239, 232, 0.09);
 }
 
-[data-theme='dark'] .fact-icon {
+[data-theme='dark'] .fact-icon,
+[data-theme='dark'] .card-icon {
   color: var(--accent);
 }
 
