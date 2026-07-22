@@ -1,4 +1,5 @@
 import { useId, useRef, useState } from 'react'
+import { DIFFICULTY_LABEL, ROOM_EMOJI, ROOM_LABEL } from '../labels'
 import type { Challenge } from '../types'
 
 interface Props {
@@ -42,9 +43,13 @@ export function CaptureScreen({ challenge, busy, error, onBack, onSubmit }: Prop
       </header>
 
       <div className="capture-copy">
-        <p className="eyebrow">{challenge.difficulty}</p>
+        <p className="eyebrow">{DIFFICULTY_LABEL[challenge.difficulty]} move</p>
         <h1 id="capture-title">{challenge.title}</h1>
         <p>{challenge.prompt}</p>
+        <span className="room-chip">
+          <span aria-hidden="true">{ROOM_EMOJI[challenge.room]}</span>
+          Head to the {ROOM_LABEL[challenge.room].toLowerCase()}
+        </span>
       </div>
 
       <div className={`viewfinder ${previewUrl ? 'has-preview' : ''}`}>

@@ -1,235 +1,133 @@
-import type { Challenge, PublicChallenge } from './types.js'
+import type { Challenge, Difficulty, PublicChallenge, Room } from './types.js'
 
+/**
+ * Move Quest's soul lives here: meaningful, photogenic prompts that get you
+ * off your chair and into another room. Every challenge is tagged with the
+ * room it lives in (never the desk) and a vibe used for feed framing.
+ *
+ * The daily draw always returns one Easy + one Medium + one Hard — the three
+ * options are an effort ladder (quick / another room / step outside).
+ */
 export const CHALLENGES: Challenge[] = [
+  // --- Easy: a quick stretch away from the desk (10 pts) --------------------
   {
-    id: 'ch_sky_blue',
-    slug: 'sky-blue',
-    title: 'Find the sky',
-    prompt: 'Photograph a clear view of the open sky outdoors.',
+    id: 'ch_water',
+    slug: 'get-water',
+    title: 'Refill your water',
+    prompt: 'Pour a fresh glass or bottle of water and photograph it.',
     difficulty: 'easy',
+    room: 'kitchen',
+    vibe: 'hydrate',
+    points: 10,
+    criteria: [{ id: 'water_visible', description: 'A glass or bottle of water is clearly visible' }],
+    active: true,
+  },
+  {
+    id: 'ch_window_view',
+    slug: 'window-view',
+    title: 'Look up and out',
+    prompt: 'Walk to your nearest window and photograph the view outside.',
+    difficulty: 'easy',
+    room: 'window',
+    vibe: 'nature',
+    points: 10,
+    criteria: [{ id: 'view_visible', description: 'A view through a window is clearly visible' }],
+    active: true,
+  },
+  {
+    id: 'ch_plant',
+    slug: 'say-hi-plant',
+    title: 'Say hi to a plant',
+    prompt: 'Find a plant nearby and photograph it up close.',
+    difficulty: 'easy',
+    room: 'lounge',
+    vibe: 'nature',
     points: 10,
     criteria: [
-      {
-        id: 'sky_visible',
-        description: 'Open sky is clearly visible in the photo',
-      },
-      {
-        id: 'outdoors',
-        description: 'The photo appears to be taken outdoors',
-      },
+      { id: 'plant_visible', description: 'A plant is clearly visible' },
+      { id: 'plant_real', description: 'The plant is real (not a drawing or screen)' },
     ],
     active: true,
   },
+
+  // --- Medium: another room, a few steps (25 pts) ---------------------------
   {
-    id: 'ch_green_leaf',
-    slug: 'green-leaf',
-    title: 'Leaf hunt',
-    prompt: 'Photograph a green leaf up close.',
-    difficulty: 'easy',
-    points: 10,
-    criteria: [
-      {
-        id: 'leaf_visible',
-        description: 'At least one green leaf is clearly visible',
-      },
-      {
-        id: 'plant_context',
-        description: 'The leaf belongs to a plant (not a drawing or screen)',
-      },
-    ],
-    active: true,
-  },
-  {
-    id: 'ch_door_handle',
-    slug: 'door-handle',
-    title: 'Door handle',
-    prompt: 'Photograph a door handle or doorknob.',
-    difficulty: 'easy',
-    points: 10,
-    criteria: [
-      {
-        id: 'handle_visible',
-        description: 'A door handle or doorknob is clearly visible',
-      },
-      {
-        id: 'door_context',
-        description: 'The handle is attached to a door or door-like surface',
-      },
-    ],
-    active: true,
-  },
-  {
-    id: 'ch_shoe_pair',
-    slug: 'shoe-pair',
-    title: 'Your shoes',
-    prompt: 'Photograph both of your shoes on the floor.',
-    difficulty: 'easy',
-    points: 10,
-    criteria: [
-      {
-        id: 'shoes_visible',
-        description: 'Two shoes are clearly visible',
-      },
-      {
-        id: 'floor_context',
-        description: 'The shoes appear to be resting on a floor or ground',
-      },
-    ],
-    active: true,
-  },
-  {
-    id: 'ch_street_sign',
-    slug: 'street-sign',
-    title: 'Street sign',
-    prompt: 'Photograph a street name or traffic sign outdoors.',
-    difficulty: 'medium',
-    points: 25,
-    criteria: [
-      {
-        id: 'sign_visible',
-        description: 'A street or traffic sign is clearly readable or recognizable',
-      },
-      {
-        id: 'outdoors',
-        description: 'The photo appears to be taken outdoors',
-      },
-    ],
-    active: true,
-  },
-  {
-    id: 'ch_bicycle',
-    slug: 'bicycle',
-    title: 'Wheels turning',
-    prompt: 'Photograph a bicycle (any bike, parked or moving).',
-    difficulty: 'medium',
-    points: 25,
-    criteria: [
-      {
-        id: 'bike_visible',
-        description: 'A bicycle is clearly visible',
-      },
-      {
-        id: 'wheels_present',
-        description: 'At least one bicycle wheel is visible',
-      },
-    ],
-    active: true,
-  },
-  {
-    id: 'ch_coffee_cup',
-    slug: 'coffee-cup',
-    title: 'Cup in hand',
-    prompt: 'Photograph a coffee or tea cup (mug, takeaway cup, or teacup).',
-    difficulty: 'medium',
-    points: 25,
-    criteria: [
-      {
-        id: 'cup_visible',
-        description: 'A cup or mug is clearly visible',
-      },
-      {
-        id: 'drinkware',
-        description: 'The object is drinkware (not a bowl or plate)',
-      },
-    ],
-    active: true,
-  },
-  {
-    id: 'ch_staircase',
-    slug: 'staircase',
+    id: 'ch_stairs',
+    slug: 'take-the-stairs',
     title: 'Take the stairs',
-    prompt: 'Photograph a staircase with at least three visible steps.',
+    prompt: 'Walk a staircase and photograph it from the top or bottom.',
     difficulty: 'medium',
+    room: 'hallway',
+    vibe: 'movement',
     points: 25,
-    criteria: [
-      {
-        id: 'stairs_visible',
-        description: 'A staircase is clearly visible',
-      },
-      {
-        id: 'multiple_steps',
-        description: 'At least three steps can be seen',
-      },
-    ],
+    criteria: [{ id: 'stairs_visible', description: 'A staircase with multiple steps is visible' }],
+    active: true,
+  },
+  {
+    id: 'ch_tidy',
+    slug: 'tidy-one-thing',
+    title: 'Tidy one thing',
+    prompt: 'Clear or organize one surface, then photograph the result.',
+    difficulty: 'medium',
+    room: 'lounge',
+    vibe: 'tidy',
+    points: 25,
+    criteria: [{ id: 'surface_visible', description: 'A tidied surface is clearly visible' }],
+    active: true,
+  },
+  {
+    id: 'ch_made',
+    slug: 'made-with-hands',
+    title: 'Made with your hands',
+    prompt: 'Make a snack, tea, or coffee and photograph what you made.',
+    difficulty: 'medium',
+    room: 'kitchen',
+    vibe: 'craft',
+    points: 25,
+    criteria: [{ id: 'made_visible', description: 'Freshly prepared food or drink is visible' }],
+    active: true,
+  },
+
+  // --- Hard: leave the building or connect with someone (50 pts) ------------
+  {
+    id: 'ch_outside',
+    slug: 'step-outside',
+    title: 'Step outside',
+    prompt: 'Go outdoors and photograph the sky, a tree, or the street.',
+    difficulty: 'hard',
+    room: 'outdoors',
+    vibe: 'fresh-air',
+    points: 50,
+    criteria: [{ id: 'outdoors', description: 'The photo appears to be taken outdoors' }],
+    active: true,
+  },
+  {
+    id: 'ch_colleague',
+    slug: 'say-hello',
+    title: 'Say hello to someone',
+    prompt: 'Greet a colleague and photograph a friendly wave (a selfie together counts).',
+    difficulty: 'hard',
+    room: 'anywhere',
+    vibe: 'social',
+    points: 50,
+    criteria: [{ id: 'person_visible', description: 'A person waving or two people are visible' }],
     active: true,
   },
   {
     id: 'ch_reflection',
-    slug: 'reflection',
+    slug: 'catch-a-reflection',
     title: 'Catch a reflection',
-    prompt: 'Photograph a clear reflection of yourself or an object in glass, water, or a mirror.',
+    prompt: 'Find a reflection in glass, water, or a mirror and photograph it.',
     difficulty: 'hard',
+    room: 'anywhere',
+    vibe: 'craft',
     points: 50,
-    criteria: [
-      {
-        id: 'reflection_visible',
-        description: 'A clear reflection is visible in a reflective surface',
-      },
-      {
-        id: 'reflective_surface',
-        description: 'Glass, water, metal, or a mirror is present as the reflecting surface',
-      },
-    ],
-    active: true,
-  },
-  {
-    id: 'ch_yellow_object',
-    slug: 'yellow-object',
-    title: 'Something yellow',
-    prompt: 'Photograph a clearly yellow everyday object outdoors or indoors.',
-    difficulty: 'hard',
-    points: 50,
-    criteria: [
-      {
-        id: 'yellow_object',
-        description: 'A distinctly yellow object is the main subject',
-      },
-      {
-        id: 'object_clarity',
-        description: 'The yellow object is in focus and easily identifiable',
-      },
-    ],
-    active: true,
-  },
-  {
-    id: 'ch_person_waving',
-    slug: 'person-waving',
-    title: 'Friendly wave',
-    prompt: 'Photograph a person waving at the camera (can be yourself in a mirror/selfie).',
-    difficulty: 'hard',
-    points: 50,
-    criteria: [
-      {
-        id: 'person_visible',
-        description: 'A person is clearly visible',
-      },
-      {
-        id: 'waving_gesture',
-        description: 'A hand is raised in a waving gesture',
-      },
-    ],
-    active: true,
-  },
-  {
-    id: 'ch_clock_face',
-    slug: 'clock-face',
-    title: 'What time is it?',
-    prompt: 'Photograph a clock or watch face showing the time.',
-    difficulty: 'hard',
-    points: 50,
-    criteria: [
-      {
-        id: 'clock_visible',
-        description: 'A clock or watch face is clearly visible',
-      },
-      {
-        id: 'time_readable',
-        description: 'The time display (hands or digits) is readable',
-      },
-    ],
+    criteria: [{ id: 'reflection_visible', description: 'A reflection in a reflective surface is visible' }],
     active: true,
   },
 ]
+
+const DIFFICULTY_ORDER: Difficulty[] = ['easy', 'medium', 'hard']
 
 export function getChallenge(id: string): Challenge | undefined {
   return CHALLENGES.find((c) => c.id === id && c.active)
@@ -242,22 +140,47 @@ export function toPublicChallenge(challenge: Challenge): PublicChallenge {
     title: challenge.title,
     prompt: challenge.prompt,
     difficulty: challenge.difficulty,
+    room: challenge.room,
+    vibe: challenge.vibe,
     points: challenge.points,
   }
 }
 
-/** Draw up to `count` distinct active challenges, excluding completed IDs. */
-export function drawRandomChallenges(
+function pickOne<T>(items: T[], random: () => number): T | undefined {
+  if (items.length === 0) return undefined
+  return items[Math.floor(random() * items.length)]
+}
+
+/**
+ * Draw exactly one Easy, one Medium, and one Hard challenge — the movement
+ * ladder. Completed challenges and the user's desk room are excluded; if a
+ * tier has nothing left outside the desk room, the desk-room filter is relaxed
+ * for that tier so the user always gets three options while any remain.
+ */
+export function drawTriad(
   excludeIds: Iterable<string>,
-  count = 3,
+  deskRoom: Room | null,
   random: () => number = Math.random,
 ): Challenge[] {
   const excluded = new Set(excludeIds)
-  const pool = CHALLENGES.filter((c) => c.active && !excluded.has(c.id))
-  const shuffled = [...pool]
-  for (let i = shuffled.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(random() * (i + 1))
-    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  const result: Challenge[] = []
+
+  for (const difficulty of DIFFICULTY_ORDER) {
+    const tier = CHALLENGES.filter(
+      (c) => c.active && c.difficulty === difficulty && !excluded.has(c.id),
+    )
+    const awayFromDesk = deskRoom
+      ? tier.filter((c) => c.room !== deskRoom)
+      : tier
+    const chosen = pickOne(awayFromDesk.length ? awayFromDesk : tier, random)
+    if (chosen) result.push(chosen)
   }
-  return shuffled.slice(0, count)
+
+  return result
+}
+
+/** How many challenges the user still has left across all tiers. */
+export function remainingCount(excludeIds: Iterable<string>): number {
+  const excluded = new Set(excludeIds)
+  return CHALLENGES.filter((c) => c.active && !excluded.has(c.id)).length
 }

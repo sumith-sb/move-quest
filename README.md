@@ -1,8 +1,29 @@
 # Move Quest
 
-Mobile-first photo challenge POC. Users pick one of three random challenges, take a photo, receive points immediately, and climb a live leaderboard.
+An internal "get off your chair" app. Each day you get **three photo
+challenges — one Easy, one Medium, one Hard** — that move you away from your
+desk (the room you mark as your desk is excluded). Pick one, take a live photo,
+and it posts to a shared team **Feed** where colleagues react and comment. After
+each move a **cooldown** paces you so it's roughly once an hour, not every
+minute — no reshuffling, no spamming.
 
-Persistence is a single JSON file plus disk uploads — no database.
+Persistence is a single JSON file plus disk uploads — no database. (SQLite is
+the intended upgrade once it goes multi-instance; deferred here to avoid native
+modules on bleeding-edge Node.)
+
+## Core loop
+
+1. Pick one of three (Easy / Medium / Hard) — the difficulty is an effort
+   ladder: quick / another room / step outside.
+2. Take a live photo of the prompt.
+3. It's accepted and **posted to the feed**; points are awarded.
+4. A cooldown (`COOLDOWN_MINUTES`, default 60) locks new moves until it passes.
+5. The team reacts (👏 🔥 🌿 💧 😌) and comments on the feed; the leaderboard
+   updates live.
+
+> Photos are verified socially by the feed rather than by a model — the demo
+> auto-accepts. Google sign-in (domain-locked) is the planned next phase; the
+> app currently uses an anonymous `localStorage` identity.
 
 ## Stack
 

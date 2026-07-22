@@ -1,5 +1,24 @@
 export type Difficulty = 'easy' | 'medium' | 'hard'
 
+/** Movement destinations — never the desk. Onboarding marks one as the user's
+ *  workspace and it is excluded from their draws. */
+export type Room =
+  | 'kitchen'
+  | 'window'
+  | 'outdoors'
+  | 'hallway'
+  | 'lounge'
+  | 'anywhere'
+
+export type Vibe =
+  | 'nature'
+  | 'hydrate'
+  | 'tidy'
+  | 'craft'
+  | 'social'
+  | 'fresh-air'
+  | 'movement'
+
 export type CriterionStatus = 'met' | 'not_met' | 'unclear'
 
 export type AttemptStatus =
@@ -20,6 +39,8 @@ export interface Challenge {
   title: string
   prompt: string
   difficulty: Difficulty
+  room: Room
+  vibe: Vibe
   points: number
   criteria: Criterion[]
   active: boolean
@@ -29,6 +50,10 @@ export interface User {
   id: string
   displayName: string
   createdAt: string
+  /** The room the user works in — excluded from their challenge draws. */
+  deskRoom: Room | null
+  /** Movement cooldown: no new challenge or post until this passes. */
+  cooldownUntil: string | null
 }
 
 export interface Attempt {
@@ -56,10 +81,31 @@ export interface Score {
   updatedAt: string
 }
 
+/** A curated emoji reaction on a feed post (an accepted attempt). */
+export interface Reaction {
+  id: string
+  attemptId: string
+  userId: string
+  emoji: string
+  createdAt: string
+}
+
+/** A comment on a feed post. */
+export interface Comment {
+  id: string
+  attemptId: string
+  userId: string
+  displayName: string
+  body: string
+  createdAt: string
+}
+
 export interface StoreData {
   users: User[]
   attempts: Attempt[]
   scores: Score[]
+  reactions: Reaction[]
+  comments: Comment[]
 }
 
 export interface ModelCheck {
@@ -99,7 +145,39 @@ export interface PublicChallenge {
   title: string
   prompt: string
   difficulty: Difficulty
+  room: Room
+  vibe: Vibe
   points: number
+}
+
+/** One reaction bucket on a feed post: the emoji, its count, and whether the
+ *  requesting user is in it. */
+export interface ReactionSummary {
+  emoji: string
+  count: number
+  mine: boolean
+}
+
+export interface FeedComment {
+  id: string
+  displayName: string
+  body: string
+  createdAt: string
+}
+
+/** A feed post — an accepted attempt, surfaced socially. */
+export interface FeedPost {
+  id: string
+  displayName: string
+  isMine: boolean
+  photoUrl: string
+  challengeTitle: string
+  room: Room
+  vibe: Vibe
+  points: number
+  createdAt: string
+  reactions: ReactionSummary[]
+  comments: FeedComment[]
 }
 
 export interface LeaderboardEntry {

@@ -12,6 +12,8 @@ const EMPTY_STORE: StoreData = {
   users: [],
   attempts: [],
   scores: [],
+  reactions: [],
+  comments: [],
 }
 
 let queue: Promise<unknown> = Promise.resolve()
@@ -36,9 +38,16 @@ export async function readStore(): Promise<StoreData> {
     const raw = await readFile(STORE_PATH, 'utf8')
     const parsed = JSON.parse(raw) as StoreData
     return {
-      users: parsed.users ?? [],
+      // Normalize older records that predate desk room + cooldown fields.
+      users: (parsed.users ?? []).map((u) => ({
+        ...u,
+        deskRoom: u.deskRoom ?? null,
+        cooldownUntil: u.cooldownUntil ?? null,
+      })),
       attempts: parsed.attempts ?? [],
       scores: parsed.scores ?? [],
+      reactions: parsed.reactions ?? [],
+      comments: parsed.comments ?? [],
     }
   } catch (err) {
     const code = (err as NodeJS.ErrnoException).code
@@ -74,5 +83,7 @@ export async function resetStore(): Promise<void> {
     store.users = []
     store.attempts = []
     store.scores = []
+    store.reactions = []
+    store.comments = []
   })
 }

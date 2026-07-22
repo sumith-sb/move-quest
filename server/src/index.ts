@@ -7,8 +7,9 @@ import cors from 'cors'
 import express, { type Request, type Response } from 'express'
 import multer from 'multer'
 import {
-  drawRandomChallenges,
+  drawTriad,
   getChallenge,
+  remainingCount,
   toPublicChallenge,
 } from './challenges.js'
 import { rankLeaderboard, rebuildScore } from './leaderboard.js'
@@ -21,10 +22,34 @@ import {
   sniffImageMime,
 } from './image.js'
 import { UPLOADS_DIR, ensureDataDirs, readStore, updateStore } from './store.js'
-import type { Attempt, LeaderboardEntry, User } from './types.js'
+import type {
+  Attempt,
+  FeedPost,
+  LeaderboardEntry,
+  Room,
+  StoreData,
+  User,
+} from './types.js'
 
 const PORT = Number(process.env.PORT ?? 3001)
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+
+/** Movement cooldown — after a post, no new challenge or post until it passes.
+ *  This is the pacing mechanic: get up roughly once an hour, not every minute. */
+const COOLDOWN_MINUTES = Number(process.env.COOLDOWN_MINUTES ?? 60)
+const COOLDOWN_MS = Math.max(0, COOLDOWN_MINUTES) * 60 * 1000
+
+/** The curated reaction set — small and meaningful, not a full emoji picker. */
+const REACTION_EMOJIS = ['👏', '🔥', '🌿', '💧', '😌'] as const
+
+const VALID_ROOMS: Room[] = [
+  'kitchen',
+  'window',
+  'outdoors',
+  'hallway',
+  'lounge',
+  'anywhere',
+]
 
 type SseClient = {
   id: string
@@ -63,6 +88,62 @@ export function resetPhotoVerifier(): void {
 
 function nowIso(): string {
   return new Date().toISOString()
+}
+
+function cooldownRemainingMs(user: Pick<User, 'cooldownUntil'>): number {
+  if (!user.cooldownUntil) return 0
+  return Math.max(0, new Date(user.cooldownUntil).getTime() - Date.now())
+}
+
+/** Build the shared feed from accepted attempts, newest first, with reaction
+ *  buckets (all curated emojis) and comments, from the viewer's perspective. */
+function buildFeed(store: StoreData, viewerId: string): FeedPost[] {
+  const posts: FeedPost[] = []
+  const accepted = store.attempts
+    .filter((a) => a.status === 'accepted' && a.photoPath)
+    .sort((a, b) => (a.awardedAt ?? '') < (b.awardedAt ?? '') ? 1 : -1)
+
+  for (const attempt of accepted) {
+    const author = store.users.find((u) => u.id === attempt.userId)
+    const challenge = getChallenge(attempt.challengeId)
+    if (!author || !challenge) continue
+
+    const attemptReactions = store.reactions.filter((r) => r.attemptId === attempt.id)
+    const reactions = REACTION_EMOJIS.map((emoji) => {
+      const bucket = attemptReactions.filter((r) => r.emoji === emoji)
+      return {
+        emoji,
+        count: bucket.length,
+        mine: bucket.some((r) => r.userId === viewerId),
+      }
+    })
+
+    const comments = store.comments
+      .filter((c) => c.attemptId === attempt.id)
+      .sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1))
+      .map((c) => ({
+        id: c.id,
+        displayName: c.displayName,
+        body: c.body,
+        createdAt: c.createdAt,
+      }))
+
+    posts.push({
+      id: attempt.id,
+      displayName: author.displayName,
+      isMine: attempt.userId === viewerId,
+      photoUrl: `/api/feed/${attempt.id}/photo`,
+      challengeTitle: challenge.title,
+      room: challenge.room,
+      vibe: challenge.vibe,
+      points: attempt.pointsAwarded,
+      createdAt: attempt.awardedAt ?? attempt.updatedAt,
+      reactions,
+      comments,
+    })
+  }
+
+  return posts
 }
 
 function broadcastLeaderboard(entries: LeaderboardEntry[]): void {
@@ -125,6 +206,12 @@ export function createApp() {
       return
     }
 
+    const rawDeskRoom = req.body?.deskRoom
+    const deskRoom: Room | null =
+      typeof rawDeskRoom === 'string' && VALID_ROOMS.includes(rawDeskRoom as Room)
+        ? (rawDeskRoom as Room)
+        : null
+
     try {
       const user = await updateStore((store) => {
         const taken = store.users.some(
@@ -139,6 +226,8 @@ export function createApp() {
           id: randomUUID(),
           displayName,
           createdAt: nowIso(),
+          deskRoom,
+          cooldownUntil: null,
         }
         store.users.push(created)
         store.scores.push({
@@ -197,10 +286,12 @@ export function createApp() {
         .filter((a) => a.userId === userId && a.status === 'accepted')
         .map((a) => a.challengeId),
     )
-    const drawn = drawRandomChallenges(completed, 3)
+    const drawn = drawTriad(completed, user.deskRoom)
     res.json({
       challenges: drawn.map(toPublicChallenge),
-      remaining: drawRandomChallenges(completed, 99).length,
+      remaining: remainingCount(completed),
+      cooldownUntil:
+        cooldownRemainingMs(user) > 0 ? user.cooldownUntil : null,
     })
   })
 
@@ -223,6 +314,11 @@ export function createApp() {
         if (!user) {
           const err = new Error('USER_NOT_FOUND')
           err.name = 'USER_NOT_FOUND'
+          throw err
+        }
+        if (cooldownRemainingMs(user) > 0) {
+          const err = new Error('COOLDOWN')
+          err.name = 'COOLDOWN'
           throw err
         }
         const alreadyAccepted = store.attempts.some(
@@ -290,6 +386,15 @@ export function createApp() {
           error: {
             code: 'ALREADY_COMPLETED',
             message: 'You already completed this challenge',
+          },
+        })
+        return
+      }
+      if (name === 'COOLDOWN') {
+        res.status(409).json({
+          error: {
+            code: 'COOLDOWN',
+            message: 'You just moved — take a break before the next one',
           },
         })
         return
@@ -548,6 +653,8 @@ export function createApp() {
             attempt.pointsAwarded = challenge.points
             attempt.awardedAt = nowIso()
             attempt.updatedAt = attempt.awardedAt
+            // The move is done — start the cooldown before the next one.
+            user.cooldownUntil = new Date(Date.now() + COOLDOWN_MS).toISOString()
             rebuildScore(store, userId, user.displayName, attempt.awardedAt)
             return {
               attempt,
@@ -657,6 +764,126 @@ export function createApp() {
       clearInterval(heartbeat)
       sseClients.delete(clientId)
     })
+  })
+
+  // --- Feed ----------------------------------------------------------------
+  app.get('/api/feed', async (req, res) => {
+    const userId = requireUserId(req, res)
+    if (!userId) return
+    const store = await readStore()
+    res.json({ feed: buildFeed(store, userId), emojis: REACTION_EMOJIS })
+  })
+
+  // Public (within-app) photo for a posted challenge. Only accepted attempts
+  // with a stored photo are served, so unposted uploads never leak.
+  app.get('/api/feed/:attemptId/photo', async (req, res) => {
+    const store = await readStore()
+    const attempt = store.attempts.find((a) => a.id === req.params.attemptId)
+    if (!attempt || attempt.status !== 'accepted' || !attempt.photoPath) {
+      res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Photo not found' } })
+      return
+    }
+    const abs = path.join(UPLOADS_DIR, attempt.photoPath)
+    createReadStream(abs)
+      .on('error', () => {
+        res.status(404).end()
+      })
+      .pipe(res)
+  })
+
+  app.post('/api/feed/:attemptId/react', async (req, res) => {
+    const userId = requireUserId(req, res)
+    if (!userId) return
+    const emoji = typeof req.body?.emoji === 'string' ? req.body.emoji : ''
+    if (!REACTION_EMOJIS.includes(emoji as (typeof REACTION_EMOJIS)[number])) {
+      res.status(400).json({
+        error: { code: 'INVALID_EMOJI', message: 'Unsupported reaction' },
+      })
+      return
+    }
+
+    try {
+      await updateStore((store) => {
+        const attempt = store.attempts.find((a) => a.id === req.params.attemptId)
+        if (!attempt || attempt.status !== 'accepted') {
+          const err = new Error('NOT_FOUND')
+          err.name = 'NOT_FOUND'
+          throw err
+        }
+        const existing = store.reactions.findIndex(
+          (r) =>
+            r.attemptId === attempt.id && r.userId === userId && r.emoji === emoji,
+        )
+        if (existing >= 0) {
+          store.reactions.splice(existing, 1) // toggle off
+        } else {
+          store.reactions.push({
+            id: randomUUID(),
+            attemptId: attempt.id,
+            userId,
+            emoji,
+            createdAt: nowIso(),
+          })
+        }
+      })
+      const store = await readStore()
+      const post = buildFeed(store, userId).find((p) => p.id === req.params.attemptId)
+      res.json({ reactions: post?.reactions ?? [] })
+    } catch (err) {
+      if ((err as Error).name === 'NOT_FOUND') {
+        res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Post not found' } })
+        return
+      }
+      throw err
+    }
+  })
+
+  app.post('/api/feed/:attemptId/comment', async (req, res) => {
+    const userId = requireUserId(req, res)
+    if (!userId) return
+    const body = typeof req.body?.body === 'string' ? req.body.body.trim() : ''
+    if (body.length < 1 || body.length > 280) {
+      res.status(400).json({
+        error: { code: 'INVALID_COMMENT', message: 'Comment must be 1–280 characters' },
+      })
+      return
+    }
+
+    try {
+      const comment = await updateStore((store) => {
+        const attempt = store.attempts.find((a) => a.id === req.params.attemptId)
+        const user = store.users.find((u) => u.id === userId)
+        if (!attempt || attempt.status !== 'accepted' || !user) {
+          const err = new Error('NOT_FOUND')
+          err.name = 'NOT_FOUND'
+          throw err
+        }
+        const created = {
+          id: randomUUID(),
+          attemptId: attempt.id,
+          userId,
+          displayName: user.displayName,
+          body,
+          createdAt: nowIso(),
+        }
+        store.comments.push(created)
+        return created
+      })
+      res.status(201).json({
+        comment: {
+          id: comment.id,
+          displayName: comment.displayName,
+          body: comment.body,
+          createdAt: comment.createdAt,
+        },
+      })
+    } catch (err) {
+      if ((err as Error).name === 'NOT_FOUND') {
+        res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Post not found' } })
+        return
+      }
+      throw err
+    }
   })
 
   // Private photo access for debugging owner only — not listed on leaderboard.

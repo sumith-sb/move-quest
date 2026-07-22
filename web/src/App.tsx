@@ -11,12 +11,14 @@ import {
 } from './api'
 import { CaptureScreen } from './components/CaptureScreen'
 import { ChallengePicker } from './components/ChallengePicker'
+import { FeedScreen } from './components/FeedScreen'
 import { LeaderboardScreen } from './components/LeaderboardScreen'
 import { Onboarding } from './components/Onboarding'
 import { ResultScreen } from './components/ResultScreen'
 import type {
   AttemptSummary,
   Challenge,
+  Room,
   Score,
   Screen,
   User,
@@ -29,6 +31,7 @@ export default function App() {
   const [score, setScore] = useState<Score | null>(null)
   const [challenges, setChallenges] = useState<Challenge[]>([])
   const [remaining, setRemaining] = useState(0)
+  const [cooldownUntil, setCooldownUntil] = useState<string | null>(null)
   const [activeChallenge, setActiveChallenge] = useState<Challenge | null>(null)
   const [attempt, setAttempt] = useState<AttemptSummary | null>(null)
   const [result, setResult] = useState<VerifyResult | null>(null)
@@ -40,6 +43,7 @@ export default function App() {
     const drawn = await drawChallenges(userId)
     setChallenges(drawn.challenges)
     setRemaining(drawn.remaining)
+    setCooldownUntil(drawn.cooldownUntil)
   }, [])
 
   useEffect(() => {
@@ -68,11 +72,11 @@ export default function App() {
     }
   }, [refreshDraw])
 
-  async function handleJoin(displayName: string) {
+  async function handleJoin(displayName: string, deskRoom: Room | null) {
     setBusy(true)
     setError(null)
     try {
-      const created = await createProfile(displayName)
+      const created = await createProfile(displayName, deskRoom)
       storeUserId(created.id)
       setUser(created)
       setScore({
@@ -120,6 +124,8 @@ export default function App() {
       if (verified.result.status === 'accepted') {
         const me = await fetchMe(user.id)
         setScore(me.score)
+        setUser(me.user)
+        setCooldownUntil(me.user.cooldownUntil)
       }
       setScreen('result')
     } catch (err) {
@@ -164,13 +170,14 @@ export default function App() {
         <ChallengePicker
           challenges={challenges}
           remaining={remaining}
+          cooldownUntil={cooldownUntil}
           scorePoints={score.totalPoints}
           displayName={user.displayName}
           busyId={busyId}
           error={error}
           onPick={handlePick}
-          onRefresh={() => void goChallenges()}
           onOpenBoard={() => setScreen('leaderboard')}
+          onOpenFeed={() => setScreen('feed')}
         />
       ) : null}
 
@@ -188,17 +195,27 @@ export default function App() {
         <ResultScreen
           challenge={activeChallenge}
           result={result}
+          cooldownUntil={cooldownUntil}
           onRetry={() => {
             setError(null)
             setScreen('capture')
           }}
           onNext={() => void goChallenges()}
           onBoard={() => setScreen('leaderboard')}
+          onFeed={() => setScreen('feed')}
         />
       ) : null}
 
       {screen === 'leaderboard' && user ? (
-        <LeaderboardScreen userId={user.id} onBack={() => void goChallenges()} />
+        <LeaderboardScreen
+          userId={user.id}
+          onBack={() => void goChallenges()}
+          onFeed={() => setScreen('feed')}
+        />
+      ) : null}
+
+      {screen === 'feed' && user ? (
+        <FeedScreen userId={user.id} onBack={() => void goChallenges()} />
       ) : null}
     </div>
   )

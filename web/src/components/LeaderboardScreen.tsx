@@ -5,9 +5,10 @@ import type { LeaderboardEntry } from '../types'
 interface Props {
   userId: string
   onBack: () => void
+  onFeed: () => void
 }
 
-export function LeaderboardScreen({ userId, onBack }: Props) {
+export function LeaderboardScreen({ userId, onBack, onFeed }: Props) {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([])
   const [error, setError] = useState<string | null>(null)
   const [live, setLive] = useState(false)
@@ -47,9 +48,14 @@ export function LeaderboardScreen({ userId, onBack }: Props) {
         <button type="button" className="ghost-btn" onClick={onBack}>
           Back
         </button>
-        <span className={`live-pill ${live ? 'on' : ''}`} aria-live="polite">
-          {live ? 'Live' : 'Connecting'}
-        </span>
+        <div className="nav-actions">
+          <span className={`live-pill ${live ? 'on' : ''}`} aria-live="polite">
+            {live ? 'Live' : 'Connecting'}
+          </span>
+          <button type="button" className="ghost-btn" onClick={onFeed}>
+            Feed
+          </button>
+        </div>
       </header>
 
       <h1 id="board-title">Leaderboard</h1>
