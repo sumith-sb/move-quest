@@ -14,6 +14,8 @@ const EMPTY_STORE: StoreData = {
   scores: [],
   reactions: [],
   comments: [],
+  pushSubscriptions: [],
+  vapid: null,
 }
 
 let queue: Promise<unknown> = Promise.resolve()
@@ -52,6 +54,8 @@ export async function readStore(): Promise<StoreData> {
       scores: parsed.scores ?? [],
       reactions: parsed.reactions ?? [],
       comments: parsed.comments ?? [],
+      pushSubscriptions: parsed.pushSubscriptions ?? [],
+      vapid: parsed.vapid ?? null,
     }
   } catch (err) {
     const code = (err as NodeJS.ErrnoException).code

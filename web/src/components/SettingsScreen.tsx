@@ -10,6 +10,7 @@ import {
   Volume2,
 } from 'lucide-react'
 import { playChime } from '../chime'
+import { cue } from '../feedback'
 import {
   ensureNotificationPermission,
   type Settings,
@@ -84,7 +85,10 @@ export function SettingsScreen({ user, settings, onChange, onOpenMenu }: Props) 
                 type="button"
                 className={`theme-opt ${active ? 'active' : ''}`}
                 aria-pressed={active}
-                onClick={() => onChange({ ...settings, theme: t.value })}
+                onClick={() => {
+                  cue.toggle()
+                  onChange({ ...settings, theme: t.value })
+                }}
               >
                 <Icon size={18} strokeWidth={2} aria-hidden="true" />
                 {t.label}
@@ -92,6 +96,13 @@ export function SettingsScreen({ user, settings, onChange, onOpenMenu }: Props) 
             )
           })}
         </div>
+
+        <Toggle
+          label="Sound & haptics"
+          hint="Play interface sounds and vibrate on taps."
+          checked={settings.uiFeedback}
+          onChange={(v) => onChange({ ...settings, uiFeedback: v })}
+        />
       </div>
 
       <div className="settings-group">

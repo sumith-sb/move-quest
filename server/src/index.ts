@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url'
 import cors from 'cors'
 import express, { type Request, type Response } from 'express'
 import multer from 'multer'
+import webpush from 'web-push'
 import {
   FREE_CHALLENGE,
   drawTriad,
@@ -165,6 +166,45 @@ function broadcastLeaderboard(entries: LeaderboardEntry[]): void {
 async function pushLeaderboard(): Promise<void> {
   const store = await readStore()
   broadcastLeaderboard(weeklyLeaderboard(store))
+}
+
+// --- Web Push -------------------------------------------------------------
+let pushReady = false
+
+/** Generate + persist VAPID keys once, then configure web-push. */
+async function ensurePush(): Promise<void> {
+  if (pushReady) return
+  const keys = await updateStore((store) => {
+    if (!store.vapid) store.vapid = webpush.generateVAPIDKeys()
+    return store.vapid
+  })
+  webpush.setVapidDetails('mailto:team@goodspeed.studio', keys.publicKey, keys.privateKey)
+  pushReady = true
+}
+
+/** Push a notification to everyone except the author; prune dead subscriptions. */
+async function sendFeedPush(authorId: string, title: string, body: string): Promise<void> {
+  if (!pushReady) return
+  const store = await readStore()
+  const targets = store.pushSubscriptions.filter((s) => s.userId !== authorId)
+  if (targets.length === 0) return
+  const payload = JSON.stringify({ title, body, url: '/' })
+  const dead: string[] = []
+  await Promise.all(
+    targets.map(async (t) => {
+      try {
+        await webpush.sendNotification(t.subscription as webpush.PushSubscription, payload)
+      } catch (err) {
+        const code = (err as { statusCode?: number }).statusCode
+        if (code === 404 || code === 410) dead.push(t.endpoint)
+      }
+    }),
+  )
+  if (dead.length > 0) {
+    await updateStore((s) => {
+      s.pushSubscriptions = s.pushSubscriptions.filter((x) => !dead.includes(x.endpoint))
+    })
+  }
 }
 
 function getUserId(req: Request): string | null {
@@ -713,6 +753,12 @@ export function createApp() {
 
         if (finalized.result.status === 'accepted') {
           await pushLeaderboard()
+          if (finalized.attempt.sharedToFeed !== false) {
+            const store = await readStore()
+            const name =
+              store.users.find((u) => u.id === userId)?.displayName ?? 'A teammate'
+            void sendFeedPush(userId, `${name} posted a move`, challenge.title)
+          }
         }
 
         res.json({
@@ -921,6 +967,29 @@ export function createApp() {
     }
   })
 
+  // --- Web Push subscription ------------------------------------------------
+  app.get('/api/push/key', async (_req, res) => {
+    await ensurePush()
+    const store = await readStore()
+    res.json({ publicKey: store.vapid?.publicKey ?? null })
+  })
+
+  app.post('/api/push/subscribe', async (req, res) => {
+    const userId = requireUserId(req, res)
+    if (!userId) return
+    const sub = req.body?.subscription
+    const endpoint = typeof sub?.endpoint === 'string' ? sub.endpoint : ''
+    if (!endpoint) {
+      res.status(400).json({ error: { code: 'INVALID', message: 'Missing subscription' } })
+      return
+    }
+    await updateStore((store) => {
+      store.pushSubscriptions = store.pushSubscriptions.filter((s) => s.endpoint !== endpoint)
+      store.pushSubscriptions.push({ userId, endpoint, subscription: sub, createdAt: nowIso() })
+    })
+    res.status(201).json({ ok: true })
+  })
+
   // Delete your own feed post — drops it from the feed and its points.
   app.delete('/api/feed/:attemptId', async (req, res) => {
     const userId = requireUserId(req, res)
@@ -985,6 +1054,7 @@ export function createApp() {
 
 export async function startServer(port = PORT) {
   await ensureDataDirs()
+  await ensurePush().catch((err) => console.warn('push init failed', err))
   const app = createApp()
   return app.listen(port, () => {
     console.log(`Move Quest API on http://127.0.0.1:${port}`)

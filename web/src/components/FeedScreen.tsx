@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { commentOnPost, deletePost, fetchFeed, reactToPost } from '../api'
 import { iconForChallenge } from '../challengeIcon'
+import { cue } from '../feedback'
 import { ROOM_ICON, ROOM_LABEL, timeAgo } from '../labels'
 import type { FeedComment, FeedPost, ReactionSummary } from '../types'
 import { Avatar } from './Avatar'
@@ -127,6 +128,7 @@ function PostCard({
 
   async function react(emoji: string) {
     if (post.isMine) return
+    cue.react()
     setPickerOpen(false)
     setReactions((cur) => {
       const existing = cur.find((r) => r.emoji === emoji)
@@ -157,6 +159,7 @@ function PostCard({
     setBusy(true)
     try {
       const comment = await commentOnPost(userId, post.id, body)
+      cue.tick()
       setComments((cur) => [...cur, comment])
       setDraft('')
     } catch {
@@ -170,6 +173,7 @@ function PostCard({
     setBusy(true)
     try {
       await deletePost(userId, post.id)
+      cue.remove()
       onDeleted(post.id)
     } catch {
       setBusy(false)

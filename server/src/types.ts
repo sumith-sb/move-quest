@@ -103,12 +103,23 @@ export interface Comment {
   createdAt: string
 }
 
+/** A stored Web Push subscription, tied to a user. */
+export interface PushRecord {
+  userId: string
+  endpoint: string
+  subscription: unknown
+  createdAt: string
+}
+
 export interface StoreData {
   users: User[]
   attempts: Attempt[]
   scores: Score[]
   reactions: Reaction[]
   comments: Comment[]
+  pushSubscriptions: PushRecord[]
+  /** Generated once and persisted so the public key stays stable. */
+  vapid: { publicKey: string; privateKey: string } | null
 }
 
 export interface ModelCheck {

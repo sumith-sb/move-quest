@@ -1,6 +1,7 @@
 import { Plus, Shuffle, Upload } from 'lucide-react'
 import { iconForChallenge } from '../challengeIcon'
 import { formatDuration, useCountdown } from '../countdown'
+import { cue } from '../feedback'
 import type { Challenge } from '../types'
 import { MenuButton } from './NavMenu'
 import { RoomChip } from './RoomChip'
@@ -110,7 +111,10 @@ export function ChallengePicker({
             <button
               type="button"
               className="reshuffle-btn"
-              onClick={onReshuffle}
+              onClick={() => {
+                cue.nav()
+                onReshuffle()
+              }}
               disabled={busyId !== null}
             >
               <Shuffle size={16} strokeWidth={2} />

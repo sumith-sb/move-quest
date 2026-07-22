@@ -1,5 +1,6 @@
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
+import { cue } from '../feedback'
 import { OnboardingArt } from './OnboardingArt'
 
 interface Props {
@@ -31,7 +32,13 @@ export function Onboarding({ busy, error, onSubmit }: Props) {
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    cue.press()
     onSubmit(name.trim())
+  }
+
+  function go(delta: number) {
+    cue.tick()
+    setStep((s) => s + delta)
   }
 
   return (
@@ -50,14 +57,14 @@ export function Onboarding({ busy, error, onSubmit }: Props) {
 
           <div className="onboarding-nav">
             {step > 0 ? (
-              <button type="button" className="secondary-btn icon-btn" onClick={() => setStep((s) => s - 1)}>
+              <button type="button" className="secondary-btn icon-btn" onClick={() => go(-1)}>
                 <ArrowLeft size={18} strokeWidth={2} />
                 Back
               </button>
             ) : (
               <span />
             )}
-            <button type="button" className="primary-btn icon-btn" onClick={() => setStep((s) => s + 1)}>
+            <button type="button" className="primary-btn icon-btn" onClick={() => go(1)}>
               Next
               <ArrowRight size={18} strokeWidth={2} />
             </button>
@@ -86,7 +93,7 @@ export function Onboarding({ busy, error, onSubmit }: Props) {
               </p>
             ) : null}
             <div className="onboarding-nav">
-              <button type="button" className="secondary-btn icon-btn" onClick={() => setStep((s) => s - 1)} disabled={busy}>
+              <button type="button" className="secondary-btn icon-btn" onClick={() => go(-1)} disabled={busy}>
                 <ArrowLeft size={18} strokeWidth={2} />
                 Back
               </button>

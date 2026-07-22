@@ -1,3 +1,5 @@
+import { cue } from '../feedback'
+
 interface Props {
   checked: boolean
   onChange: (checked: boolean) => void
@@ -21,7 +23,10 @@ export function Toggle({ checked, onChange, label, hint, disabled }: Props) {
           role="switch"
           checked={checked}
           disabled={disabled}
-          onChange={(e) => onChange(e.target.checked)}
+          onChange={(e) => {
+            cue.toggle()
+            onChange(e.target.checked)
+          }}
         />
         <span className="toggle-track" aria-hidden="true">
           <span className="toggle-knob" />

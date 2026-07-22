@@ -11,6 +11,8 @@ import {
   verifyAttempt,
 } from './api'
 import { playChime } from './chime'
+import { cue, setFeedbackEnabled } from './feedback'
+import { registerPush } from './push'
 import { CaptureScreen } from './components/CaptureScreen'
 import { ChallengePicker } from './components/ChallengePicker'
 import { FeedScreen } from './components/FeedScreen'
@@ -53,6 +55,7 @@ export default function App() {
   const screenRef = useRef<Screen>(screen)
   screenRef.current = screen
   const seenFeedIds = useRef<Set<string> | null>(null)
+  const [pushActive, setPushActive] = useState(false)
 
   const refreshDraw = useCallback(async (userId: string) => {
     const drawn = await drawChallenges(userId)
@@ -109,11 +112,26 @@ export default function App() {
     return () => mq.removeEventListener('change', handler)
   }, [settings.theme])
 
-  // Poll the feed and notify when a teammate posts a new move (foreground only;
-  // a real background push would need a service worker).
+  // Register Web Push so notifications arrive even when the tab is closed.
   useEffect(() => {
     const userId = user?.id
-    if (!userId || !settings.feedNotify) return
+    if (!userId || !settings.feedNotify) {
+      setPushActive(false)
+      return
+    }
+    let cancelled = false
+    void registerPush(userId).then((ok) => {
+      if (!cancelled) setPushActive(ok)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [user?.id, settings.feedNotify])
+
+  // Fallback: when push isn't available, poll the feed and notify in-app.
+  useEffect(() => {
+    const userId = user?.id
+    if (!userId || !settings.feedNotify || pushActive) return
     let cancelled = false
     let timer: number | undefined
     async function poll() {
@@ -146,14 +164,24 @@ export default function App() {
       cancelled = true
       if (timer) window.clearTimeout(timer)
     }
-  }, [user?.id, settings.feedNotify])
+  }, [user?.id, settings.feedNotify, pushActive])
+
+  useEffect(() => {
+    setFeedbackEnabled(settings.uiFeedback)
+  }, [settings.uiFeedback])
 
   function updateSettings(next: Settings) {
     setSettings(next)
     saveSettings(next)
   }
 
+  function openMenu() {
+    cue.tick()
+    setMenuOpen(true)
+  }
+
   function navigate(next: Screen) {
+    cue.nav()
     setMenuOpen(false)
     setError(null)
     if (next === 'challenges') {
@@ -188,6 +216,7 @@ export default function App() {
 
   async function handlePick(challenge: Challenge) {
     if (!user) return
+    cue.select()
     setBusyId(challenge.id)
     setError(null)
     try {
@@ -213,10 +242,13 @@ export default function App() {
       setActiveChallenge(verified.challenge)
       setResult(verified.result)
       if (verified.result.status === 'accepted') {
+        cue.success()
         const me = await fetchMe(user.id)
         setScore(me.score)
         setUser(me.user)
         setCooldownUntil(me.user.cooldownUntil)
+      } else {
+        cue.error()
       }
       setScreen('result')
     } catch (err) {
@@ -270,7 +302,7 @@ export default function App() {
           error={error}
           onPick={handlePick}
           onReshuffle={() => void refreshDraw(user.id)}
-          onOpenMenu={() => setMenuOpen(true)}
+          onOpenMenu={openMenu}
           onOpenFeed={() => setScreen('feed')}
         />
       ) : null}
@@ -301,11 +333,11 @@ export default function App() {
       ) : null}
 
       {screen === 'leaderboard' && user ? (
-        <LeaderboardScreen userId={user.id} onOpenMenu={() => setMenuOpen(true)} />
+        <LeaderboardScreen userId={user.id} onOpenMenu={openMenu} />
       ) : null}
 
       {screen === 'feed' && user ? (
-        <FeedScreen userId={user.id} onOpenMenu={() => setMenuOpen(true)} />
+        <FeedScreen userId={user.id} onOpenMenu={openMenu} />
       ) : null}
 
       {screen === 'settings' && user ? (
@@ -313,7 +345,7 @@ export default function App() {
           user={user}
           settings={settings}
           onChange={updateSettings}
-          onOpenMenu={() => setMenuOpen(true)}
+          onOpenMenu={openMenu}
         />
       ) : null}
 
