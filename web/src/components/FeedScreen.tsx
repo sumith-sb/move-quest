@@ -1,10 +1,10 @@
-import { Plus, Send, Trash2, X } from 'lucide-react'
+import { MoreHorizontal, Plus, Send, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { commentOnPost, deletePost, fetchFeed, reactToPost } from '../api'
 import { iconForChallenge } from '../challengeIcon'
 import { cue } from '../feedback'
-import { ROOM_ICON, ROOM_LABEL, timeAgo } from '../labels'
+import { ROOM_LABEL, timeAgo } from '../labels'
 import type { FeedComment, FeedPost, ReactionSummary } from '../types'
 import { Avatar } from './Avatar'
 import { EmojiPicker } from './EmojiPicker'
@@ -117,14 +117,14 @@ function PostCard({
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
-  const RoomIcon = ROOM_ICON[post.room]
+  const [menuOpen, setMenuOpen] = useState(false)
   const TaskIcon = iconForChallenge({
     title: post.challengeTitle,
     prompt: post.challengeTitle,
     vibe: post.vibe,
     room: post.room,
   })
+  const showReactions = reactions.length > 0 || !post.isMine
 
   async function react(emoji: string) {
     if (post.isMine) return
@@ -177,7 +177,7 @@ function PostCard({
       onDeleted(post.id)
     } catch {
       setBusy(false)
-      setConfirmDelete(false)
+      setMenuOpen(false)
     }
   }
 
@@ -185,78 +185,102 @@ function PostCard({
     <article className={`feed-card ${post.isMine ? 'is-mine' : ''}`}>
       <header className="feed-head">
         <Avatar name={post.displayName} avatarUrl={post.avatarUrl} size={40} />
-        <div className="feed-head-text">
+        <div className="feed-id">
           <span className="feed-author">
             {post.displayName}
-            {post.isMine ? ' · you' : ''}
+            {post.isMine ? <span className="feed-you"> · you</span> : null}
           </span>
-          <span className="feed-sub">
-            <RoomIcon size={12} strokeWidth={2} aria-hidden="true" />
-            {ROOM_LABEL[post.room]} · {timeAgo(post.createdAt)}
+          <span className="feed-meta">
+            <TaskIcon size={13} strokeWidth={2} aria-hidden="true" />
+            <span className="feed-meta-task">{post.challengeTitle}</span>
+            <span className="feed-meta-sep">·</span>
+            {ROOM_LABEL[post.room]}
+            <span className="feed-meta-sep">·</span>
+            {timeAgo(post.createdAt)}
           </span>
         </div>
-        <span className="feed-points">+{post.points}</span>
+        {post.isMine ? (
+          <div className="feed-more-wrap">
+            <button
+              type="button"
+              className="feed-more"
+              aria-label="Post options"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((v) => !v)}
+            >
+              <MoreHorizontal size={18} strokeWidth={2} />
+            </button>
+            {menuOpen ? (
+              <div className="feed-menu">
+                <p className="feed-menu-note">Delete this post? Your points go too.</p>
+                <div className="feed-menu-actions">
+                  <button type="button" className="text-btn" onClick={() => setMenuOpen(false)} disabled={busy}>
+                    Cancel
+                  </button>
+                  <button type="button" className="danger-btn" onClick={() => void remove()} disabled={busy}>
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </header>
 
-      <button
-        type="button"
-        className="feed-photo"
-        onClick={() => onOpenPhoto(post.photoUrl)}
-        aria-label="View full size"
-      >
-        <img src={post.photoUrl} alt={`${post.displayName}: ${post.challengeTitle}`} loading="lazy" />
-      </button>
+      <div className="feed-photo-wrap">
+        <button
+          type="button"
+          className="feed-photo"
+          onClick={() => onOpenPhoto(post.photoUrl)}
+          aria-label="View full size"
+        >
+          <img src={post.photoUrl} alt={`${post.displayName}: ${post.challengeTitle}`} loading="lazy" />
+        </button>
+        <span className="feed-points">+{post.points}</span>
+      </div>
 
       <div className="feed-body">
-        <div className="feed-task">
-          <span className="feed-task-icon" aria-hidden="true">
-            <TaskIcon size={16} strokeWidth={2} />
-          </span>
-          <span className="feed-task-text">
-            <span className="feed-task-label">Completed</span>
-            <span className="feed-task-title">{post.challengeTitle}</span>
-          </span>
-        </div>
-
         {post.caption ? <p className="feed-caption">{post.caption}</p> : null}
 
-        <div className="reaction-bar">
-          {reactions.map((r) =>
-            post.isMine ? (
-              <span key={r.emoji} className={`reaction static ${r.mine ? 'mine' : ''}`}>
-                <span aria-hidden="true">{r.emoji}</span>
-                <span className="reaction-count">{r.count}</span>
-              </span>
-            ) : (
-              <button
-                key={r.emoji}
-                type="button"
-                className={`reaction ${r.mine ? 'mine' : ''}`}
-                aria-pressed={r.mine}
-                onClick={() => void react(r.emoji)}
-              >
-                <span aria-hidden="true">{r.emoji}</span>
-                <span className="reaction-count">{r.count}</span>
-              </button>
-            ),
-          )}
-          {!post.isMine ? (
-            <div className="reaction-add">
-              <button
-                type="button"
-                className="reaction add"
-                aria-label="Add a reaction"
-                aria-expanded={pickerOpen}
-                onClick={() => setPickerOpen((v) => !v)}
-              >
-                <Plus size={16} strokeWidth={2.5} />
-              </button>
-              {pickerOpen ? (
-                <EmojiPicker onPick={(e) => void react(e)} onClose={() => setPickerOpen(false)} />
-              ) : null}
-            </div>
-          ) : null}
-        </div>
+        {showReactions ? (
+          <div className="reaction-bar">
+            {reactions.map((r) =>
+              post.isMine ? (
+                <span key={r.emoji} className={`reaction static ${r.mine ? 'mine' : ''}`}>
+                  <span aria-hidden="true">{r.emoji}</span>
+                  <span className="reaction-count">{r.count}</span>
+                </span>
+              ) : (
+                <button
+                  key={r.emoji}
+                  type="button"
+                  className={`reaction ${r.mine ? 'mine' : ''}`}
+                  aria-pressed={r.mine}
+                  onClick={() => void react(r.emoji)}
+                >
+                  <span aria-hidden="true">{r.emoji}</span>
+                  <span className="reaction-count">{r.count}</span>
+                </button>
+              ),
+            )}
+            {!post.isMine ? (
+              <div className="reaction-add">
+                <button
+                  type="button"
+                  className="reaction add"
+                  aria-label="Add a reaction"
+                  aria-expanded={pickerOpen}
+                  onClick={() => setPickerOpen((v) => !v)}
+                >
+                  <Plus size={16} strokeWidth={2.5} />
+                </button>
+                {pickerOpen ? (
+                  <EmojiPicker onPick={(e) => void react(e)} onClose={() => setPickerOpen(false)} />
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {comments.length > 0 ? (
           <ul className="comment-list">
@@ -291,31 +315,6 @@ function PostCard({
             <Send size={16} strokeWidth={2} />
           </button>
         </form>
-
-        {post.isMine ? (
-          confirmDelete ? (
-            <div className="feed-delete-confirm">
-              <span>Delete this post? Your points go too.</span>
-              <div className="feed-delete-actions">
-                <button type="button" className="text-btn" onClick={() => setConfirmDelete(false)} disabled={busy}>
-                  Cancel
-                </button>
-                <button type="button" className="danger-btn" onClick={() => void remove()} disabled={busy}>
-                  Delete
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              type="button"
-              className="feed-delete icon-btn"
-              onClick={() => setConfirmDelete(true)}
-            >
-              <Trash2 size={15} strokeWidth={2} />
-              Delete post
-            </button>
-          )
-        ) : null}
       </div>
     </article>
   )

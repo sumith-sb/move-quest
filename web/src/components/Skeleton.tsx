@@ -29,15 +29,17 @@ export function Skeleton({ width, height, radius, circle, className, style }: Pr
 export function SkeletonFeedCard() {
   return (
     <div className="feed-card skeleton-card">
-      <div className="feed-head">
+      <div className="skeleton-head">
         <Skeleton circle width={40} height={40} />
-        <div className="feed-head-text">
+        <div className="skeleton-head-text">
           <Skeleton width="45%" height={12} />
-          <Skeleton width="60%" height={10} style={{ marginTop: 6 }} />
+          <Skeleton width="62%" height={10} />
         </div>
       </div>
-      <Skeleton height={160} radius={16} />
-      <Skeleton width="55%" height={14} />
+      <Skeleton height={190} radius={0} />
+      <div className="skeleton-foot">
+        <Skeleton width="55%" height={13} />
+      </div>
     </div>
   )
 }
