@@ -77,7 +77,7 @@ export function LeaderboardScreen({ userId, onOpenMenu }: Props) {
     <section className="screen board-screen" aria-labelledby="board-title">
       <header className="topbar">
         <MenuButton onClick={onOpenMenu} />
-        <Logo height={16} />
+        <Logo height={28} />
       </header>
 
       <h1 id="board-title">This Week</h1>

@@ -53,7 +53,7 @@ export function SettingsScreen({ user, settings, onChange, onOpenMenu }: Props) 
     <section className="screen settings-screen" aria-labelledby="settings-title">
       <header className="topbar">
         <MenuButton onClick={onOpenMenu} />
-        <Logo height={16} />
+        <Logo height={28} />
       </header>
 
       <h1 id="settings-title">Settings</h1>

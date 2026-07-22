@@ -44,7 +44,7 @@ export function FeedScreen({ userId, onOpenMenu }: Props) {
     <section className="screen feed-screen" aria-labelledby="feed-title">
       <header className="topbar">
         <MenuButton onClick={onOpenMenu} />
-        <Logo height={16} />
+        <Logo height={28} />
       </header>
 
       <h1 id="feed-title">Feed</h1>

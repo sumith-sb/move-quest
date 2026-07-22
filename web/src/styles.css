@@ -302,9 +302,10 @@ h2 {
 /* --- Topbar / player chip ------------------------------------------------- */
 .topbar {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  min-height: 44px;
 }
 
 .player-chip {
@@ -1478,7 +1479,7 @@ h2 {
 }
 
 .challenges-screen .player-chip {
-  flex: 1;
+  flex: 0 1 auto;
 }
 
 .picker-actions {
