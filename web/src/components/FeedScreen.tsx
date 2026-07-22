@@ -1,5 +1,6 @@
 import { Plus, Send, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { commentOnPost, fetchFeed, reactToPost } from '../api'
 import { ROOM_ICON, ROOM_LABEL, timeAgo } from '../labels'
 import type { FeedComment, FeedPost, ReactionSummary } from '../types'
@@ -69,14 +70,22 @@ export function FeedScreen({ userId, onOpenMenu }: Props) {
         </ul>
       )}
 
-      {lightbox ? (
-        <div className="lightbox" onClick={() => setLightbox(null)}>
-          <button type="button" className="lightbox-close" aria-label="Close" onClick={() => setLightbox(null)}>
-            <X size={24} />
-          </button>
-          <img src={lightbox} alt="Full size" onClick={(e) => e.stopPropagation()} />
-        </div>
-      ) : null}
+      {lightbox
+        ? createPortal(
+            <div className="lightbox" onClick={() => setLightbox(null)}>
+              <button
+                type="button"
+                className="lightbox-close"
+                aria-label="Close"
+                onClick={() => setLightbox(null)}
+              >
+                <X size={24} />
+              </button>
+              <img src={lightbox} alt="Full size" onClick={(e) => e.stopPropagation()} />
+            </div>,
+            document.body,
+          )
+        : null}
     </section>
   )
 }
