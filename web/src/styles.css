@@ -320,7 +320,6 @@ h2 {
   width: 100%;
   text-align: left;
   border: 1px solid var(--line);
-  border-left: 5px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--bg-elevated);
   color: inherit;
@@ -353,31 +352,46 @@ h2 {
   transition-duration: var(--dur-fast);
 }
 
-.challenge-card.difficulty-easy {
-  border-left-color: var(--gs-green);
-}
-
-.challenge-card.difficulty-medium {
-  border-left-color: var(--gs-sand);
-}
-
-.challenge-card.difficulty-hard {
-  border-left-color: var(--gs-peach);
-}
-
 .card-meta {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
+/* Difficulty shown as a Goodspeed pill chip with a colored dot — never a rail */
 .diff-pill {
-  font-size: 0.72rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--font-display);
   font-weight: 500;
-  letter-spacing: 0.1em;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--fg-muted);
-  font-family: var(--font-display);
+  background: rgba(54, 73, 60, 0.06);
+  padding: 0.3rem 0.7rem 0.3rem 0.6rem;
+  border-radius: var(--radius-pill);
+}
+
+.diff-pill::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--fg-subtle);
+}
+
+.difficulty-easy .diff-pill::before {
+  background: var(--gs-green);
+}
+
+.difficulty-medium .diff-pill::before {
+  background: var(--gs-sand);
+}
+
+.difficulty-hard .diff-pill::before {
+  background: var(--gs-peach);
 }
 
 .points-stamp {
