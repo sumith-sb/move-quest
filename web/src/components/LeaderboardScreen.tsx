@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
 import { fetchLeaderboard, subscribeLeaderboard } from '../api'
 import type { LeaderboardEntry } from '../types'
+import { MenuButton } from './NavMenu'
 
 interface Props {
   userId: string
-  onBack: () => void
-  onFeed: () => void
+  onOpenMenu: () => void
 }
 
-export function LeaderboardScreen({ userId, onBack, onFeed }: Props) {
+export function LeaderboardScreen({ userId, onOpenMenu }: Props) {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([])
   const [error, setError] = useState<string | null>(null)
   const [live, setLive] = useState(false)
@@ -45,21 +45,14 @@ export function LeaderboardScreen({ userId, onBack, onFeed }: Props) {
   return (
     <section className="screen board-screen" aria-labelledby="board-title">
       <header className="topbar">
-        <button type="button" className="ghost-btn" onClick={onBack}>
-          Back
-        </button>
-        <div className="nav-actions">
-          <span className={`live-pill ${live ? 'on' : ''}`} aria-live="polite">
-            {live ? 'Live' : 'Connecting'}
-          </span>
-          <button type="button" className="ghost-btn" onClick={onFeed}>
-            Feed
-          </button>
-        </div>
+        <MenuButton onClick={onOpenMenu} />
+        <span className={`live-pill ${live ? 'on' : ''}`} aria-live="polite">
+          {live ? 'Live' : 'Connecting'}
+        </span>
       </header>
 
-      <h1 id="board-title">Leaderboard</h1>
-      <p className="lede">Points update the moment someone clears a challenge.</p>
+      <h1 id="board-title">This Week</h1>
+      <p className="lede">Points reset every Monday. Reactions on your posts count too.</p>
 
       {error ? (
         <p className="banner error" role="alert">

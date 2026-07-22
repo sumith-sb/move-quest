@@ -1,6 +1,7 @@
 import { formatDuration, useCountdown } from '../countdown'
 import { DIFFICULTY_LABEL, ROOM_EMOJI, ROOM_LABEL } from '../labels'
 import type { Challenge } from '../types'
+import { MenuButton } from './NavMenu'
 
 interface Props {
   challenges: Challenge[]
@@ -11,7 +12,7 @@ interface Props {
   busyId: string | null
   error: string | null
   onPick: (challenge: Challenge) => void
-  onOpenBoard: () => void
+  onOpenMenu: () => void
   onOpenFeed: () => void
 }
 
@@ -24,7 +25,7 @@ export function ChallengePicker({
   busyId,
   error,
   onPick,
-  onOpenBoard,
+  onOpenMenu,
   onOpenFeed,
 }: Props) {
   const cooldownMs = useCountdown(cooldownUntil)
@@ -37,14 +38,7 @@ export function ChallengePicker({
           <p className="eyebrow">Today&apos;s Moves</p>
           <h1 id="pick-title">{cooling ? 'You Moved' : 'Pick One'}</h1>
         </div>
-        <div className="nav-actions">
-          <button type="button" className="ghost-btn" onClick={onOpenFeed}>
-            Feed
-          </button>
-          <button type="button" className="ghost-btn" onClick={onOpenBoard}>
-            Board
-          </button>
-        </div>
+        <MenuButton onClick={onOpenMenu} />
       </header>
 
       <div className="player-chip" aria-live="polite">

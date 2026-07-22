@@ -9,12 +9,21 @@ import {
   storeUserId,
   verifyAttempt,
 } from './api'
+import { playChime } from './chime'
 import { CaptureScreen } from './components/CaptureScreen'
 import { ChallengePicker } from './components/ChallengePicker'
 import { FeedScreen } from './components/FeedScreen'
 import { LeaderboardScreen } from './components/LeaderboardScreen'
+import { NavMenu } from './components/NavMenu'
 import { Onboarding } from './components/Onboarding'
 import { ResultScreen } from './components/ResultScreen'
+import { SettingsScreen } from './components/SettingsScreen'
+import {
+  loadSettings,
+  notify,
+  saveSettings,
+  type Settings,
+} from './settings'
 import type {
   AttemptSummary,
   Challenge,
@@ -37,6 +46,8 @@ export default function App() {
   const [busy, setBusy] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [settings, setSettings] = useState<Settings>(loadSettings)
 
   const refreshDraw = useCallback(async (userId: string) => {
     const drawn = await drawChallenges(userId)
@@ -70,6 +81,33 @@ export default function App() {
       cancelled = true
     }
   }, [refreshDraw])
+
+  // Movement reminder: ring + notify the moment the cooldown ends.
+  useEffect(() => {
+    if (!settings.reminderEnabled || !cooldownUntil) return
+    const ms = new Date(cooldownUntil).getTime() - Date.now()
+    if (ms <= 0) return
+    const id = window.setTimeout(() => {
+      if (settings.soundEnabled) playChime()
+      notify('Time to move', 'Your next Move Quest is ready.')
+    }, ms)
+    return () => window.clearTimeout(id)
+  }, [settings.reminderEnabled, settings.soundEnabled, cooldownUntil])
+
+  function updateSettings(next: Settings) {
+    setSettings(next)
+    saveSettings(next)
+  }
+
+  function navigate(next: Screen) {
+    setMenuOpen(false)
+    setError(null)
+    if (next === 'challenges') {
+      void goChallenges()
+    } else {
+      setScreen(next)
+    }
+  }
 
   async function handleJoin(displayName: string) {
     setBusy(true)
@@ -111,12 +149,12 @@ export default function App() {
     }
   }
 
-  async function handleSubmit(file: File) {
+  async function handleSubmit(file: File, caption: string, sharedToFeed: boolean) {
     if (!user || !attempt) return
     setBusy(true)
     setError(null)
     try {
-      const verified = await verifyAttempt(user.id, attempt.id, file)
+      const verified = await verifyAttempt(user.id, attempt.id, file, caption, sharedToFeed)
       setAttempt(verified.attempt)
       setActiveChallenge(verified.challenge)
       setResult(verified.result)
@@ -175,7 +213,7 @@ export default function App() {
           busyId={busyId}
           error={error}
           onPick={handlePick}
-          onOpenBoard={() => setScreen('leaderboard')}
+          onOpenMenu={() => setMenuOpen(true)}
           onOpenFeed={() => setScreen('feed')}
         />
       ) : null}
@@ -186,7 +224,7 @@ export default function App() {
           busy={busy}
           error={error}
           onBack={() => void goChallenges()}
-          onSubmit={(file) => void handleSubmit(file)}
+          onSubmit={(file, caption, shared) => void handleSubmit(file, caption, shared)}
         />
       ) : null}
 
@@ -206,16 +244,28 @@ export default function App() {
       ) : null}
 
       {screen === 'leaderboard' && user ? (
-        <LeaderboardScreen
-          userId={user.id}
-          onBack={() => void goChallenges()}
-          onFeed={() => setScreen('feed')}
-        />
+        <LeaderboardScreen userId={user.id} onOpenMenu={() => setMenuOpen(true)} />
       ) : null}
 
       {screen === 'feed' && user ? (
-        <FeedScreen userId={user.id} onBack={() => void goChallenges()} />
+        <FeedScreen userId={user.id} onOpenMenu={() => setMenuOpen(true)} />
       ) : null}
+
+      {screen === 'settings' && user ? (
+        <SettingsScreen
+          user={user}
+          settings={settings}
+          onChange={updateSettings}
+          onOpenMenu={() => setMenuOpen(true)}
+        />
+      ) : null}
+
+      <NavMenu
+        open={menuOpen}
+        current={screen}
+        onNavigate={navigate}
+        onClose={() => setMenuOpen(false)}
+      />
     </div>
   )
 }

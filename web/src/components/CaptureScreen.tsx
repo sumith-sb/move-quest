@@ -7,7 +7,7 @@ interface Props {
   busy: boolean
   error: string | null
   onBack: () => void
-  onSubmit: (file: File) => void
+  onSubmit: (file: File, caption: string, sharedToFeed: boolean) => void
 }
 
 function isHeicFile(file: File): boolean {
@@ -25,6 +25,8 @@ export function CaptureScreen({ challenge, busy, error, onBack, onSubmit }: Prop
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [heicNote, setHeicNote] = useState(false)
+  const [caption, setCaption] = useState('')
+  const [shareToFeed, setShareToFeed] = useState(true)
 
   function onFileChange(next: File | null) {
     if (previewUrl) URL.revokeObjectURL(previewUrl)
@@ -56,25 +58,48 @@ export function CaptureScreen({ challenge, busy, error, onBack, onSubmit }: Prop
         {previewUrl ? (
           <img
             src={previewUrl}
-            alt="Selected challenge photo preview"
+            alt="Your challenge photo"
             onError={() => {
               // Chrome often cannot preview HEIC; upload still works.
               setPreviewUrl(null)
             }}
           />
         ) : (
-          <p>
-            {file
-              ? `${file.name || 'Photo selected'} — ready to submit.`
-              : 'Take a new photo or pick one from your library.'}
-          </p>
+          <p>{file ? 'Photo ready to share.' : 'Tap below to take a live photo.'}</p>
         )}
       </div>
 
       {heicNote ? (
         <p className="muted freshness-hint" role="status">
-          HEIC captured — the server will convert it before upload.
+          HEIC captured — the server will convert it before it posts.
         </p>
+      ) : null}
+
+      {file ? (
+        <div className="capture-extras">
+          <label className="sr-only" htmlFor="caption-input">
+            Add a caption
+          </label>
+          <input
+            id="caption-input"
+            className="caption-input"
+            type="text"
+            maxLength={140}
+            placeholder="Add a caption… (optional)"
+            value={caption}
+            onChange={(e) => setCaption(e.target.value)}
+            disabled={busy}
+          />
+          <label className="share-toggle">
+            <input
+              type="checkbox"
+              checked={shareToFeed}
+              onChange={(e) => setShareToFeed(e.target.checked)}
+              disabled={busy}
+            />
+            <span>Share to the team feed</span>
+          </label>
+        </div>
       ) : null}
 
       {error ? (
@@ -106,9 +131,9 @@ export function CaptureScreen({ challenge, busy, error, onBack, onSubmit }: Prop
           type="button"
           className="primary-btn"
           disabled={!file || busy}
-          onClick={() => file && onSubmit(file)}
+          onClick={() => file && onSubmit(file, caption, shareToFeed)}
         >
-          {busy ? 'Uploading…' : 'Submit photo'}
+          {busy ? 'Posting…' : shareToFeed ? 'Post the move' : 'Log the move'}
         </button>
       </div>
     </section>

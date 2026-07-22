@@ -22,6 +22,7 @@ export interface User {
   displayName: string
   createdAt: string
   cooldownUntil: string | null
+  avatarUrl: string | null
 }
 
 export interface Score {
@@ -86,8 +87,10 @@ export interface FeedComment {
 export interface FeedPost {
   id: string
   displayName: string
+  avatarUrl: string | null
   isMine: boolean
   photoUrl: string
+  caption: string | null
   challengeTitle: string
   room: Room
   vibe: Vibe
@@ -105,3 +108,4 @@ export type Screen =
   | 'result'
   | 'leaderboard'
   | 'feed'
+  | 'settings'

@@ -2,13 +2,16 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { commentOnPost, fetchFeed, reactToPost } from '../api'
 import { ROOM_EMOJI, ROOM_LABEL, timeAgo } from '../labels'
 import type { FeedComment, FeedPost, ReactionSummary } from '../types'
+import { Avatar } from './Avatar'
+import { EmojiPicker } from './EmojiPicker'
+import { MenuButton } from './NavMenu'
 
 interface Props {
   userId: string
-  onBack: () => void
+  onOpenMenu: () => void
 }
 
-export function FeedScreen({ userId, onBack }: Props) {
+export function FeedScreen({ userId, onOpenMenu }: Props) {
   const [posts, setPosts] = useState<FeedPost[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -33,9 +36,7 @@ export function FeedScreen({ userId, onBack }: Props) {
   return (
     <section className="screen feed-screen" aria-labelledby="feed-title">
       <header className="topbar">
-        <button type="button" className="ghost-btn" onClick={onBack}>
-          Back
-        </button>
+        <MenuButton onClick={onOpenMenu} />
         <p className="eyebrow">The Team</p>
       </header>
 
@@ -75,28 +76,29 @@ function PostCard({ post, userId }: { post: FeedPost; userId: string }) {
   const [comments, setComments] = useState<FeedComment[]>(post.comments)
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
 
-  async function toggleReaction(emoji: string) {
-    // Optimistic — snap immediately, reconcile with the server's count.
-    setReactions((cur) =>
-      cur.map((r) =>
-        r.emoji === emoji
-          ? { ...r, mine: !r.mine, count: r.count + (r.mine ? -1 : 1) }
-          : r,
-      ),
-    )
+  async function react(emoji: string) {
+    setPickerOpen(false)
+    // Optimistic: toggle an existing chip or add a new one.
+    setReactions((cur) => {
+      const existing = cur.find((r) => r.emoji === emoji)
+      if (existing) {
+        return cur
+          .map((r) =>
+            r.emoji === emoji
+              ? { ...r, mine: !r.mine, count: r.count + (r.mine ? -1 : 1) }
+              : r,
+          )
+          .filter((r) => r.count > 0)
+      }
+      return [...cur, { emoji, count: 1, mine: true }]
+    })
     try {
       const authoritative = await reactToPost(userId, post.id, emoji)
       setReactions(authoritative)
     } catch {
-      // Revert on failure by re-reading nothing we can trust — flip back.
-      setReactions((cur) =>
-        cur.map((r) =>
-          r.emoji === emoji
-            ? { ...r, mine: !r.mine, count: r.count + (r.mine ? -1 : 1) }
-            : r,
-        ),
-      )
+      // Best-effort — leave the optimistic state.
     }
   }
 
@@ -119,70 +121,86 @@ function PostCard({ post, userId }: { post: FeedPost; userId: string }) {
   return (
     <article className={`feed-card ${post.isMine ? 'is-mine' : ''}`}>
       <header className="feed-head">
-        <div>
+        <Avatar name={post.displayName} avatarUrl={post.avatarUrl} size={40} />
+        <div className="feed-head-text">
           <span className="feed-author">
             {post.displayName}
-            {post.isMine ? ' (you)' : ''}
+            {post.isMine ? ' · you' : ''}
           </span>
-          <span className="feed-time">{timeAgo(post.createdAt)}</span>
+          <span className="feed-sub">
+            {ROOM_EMOJI[post.room]} {ROOM_LABEL[post.room]} · {timeAgo(post.createdAt)}
+          </span>
         </div>
-        <span className="room-chip">
-          <span aria-hidden="true">{ROOM_EMOJI[post.room]}</span>
-          {ROOM_LABEL[post.room]}
-        </span>
+        <span className="feed-points">+{post.points}</span>
       </header>
 
       <div className="feed-photo">
         <img src={post.photoUrl} alt={`${post.displayName}: ${post.challengeTitle}`} loading="lazy" />
-        <span className="feed-points">+{post.points}</span>
       </div>
 
-      <p className="feed-caption">{post.challengeTitle}</p>
+      <div className="feed-body">
+        <p className="feed-challenge">{post.challengeTitle}</p>
+        {post.caption ? <p className="feed-caption">{post.caption}</p> : null}
 
-      <div className="reaction-bar" role="group" aria-label="React to this move">
-        {reactions.map((r) => (
-          <button
-            key={r.emoji}
-            type="button"
-            className={`reaction ${r.mine ? 'mine' : ''}`}
-            aria-pressed={r.mine}
-            onClick={() => void toggleReaction(r.emoji)}
-          >
-            <span aria-hidden="true">{r.emoji}</span>
-            {r.count > 0 ? <span className="reaction-count">{r.count}</span> : null}
-          </button>
-        ))}
-      </div>
-
-      {comments.length > 0 ? (
-        <ul className="comment-list">
-          {comments.map((c) => (
-            <li key={c.id}>
-              <span className="comment-author">{c.displayName}</span>
-              <span className="comment-body">{c.body}</span>
-            </li>
+        <div className="reaction-bar">
+          {reactions.map((r) => (
+            <button
+              key={r.emoji}
+              type="button"
+              className={`reaction ${r.mine ? 'mine' : ''}`}
+              aria-pressed={r.mine}
+              onClick={() => void react(r.emoji)}
+            >
+              <span aria-hidden="true">{r.emoji}</span>
+              <span className="reaction-count">{r.count}</span>
+            </button>
           ))}
-        </ul>
-      ) : null}
+          <div className="reaction-add">
+            <button
+              type="button"
+              className="reaction add"
+              aria-label="Add a reaction"
+              aria-expanded={pickerOpen}
+              onClick={() => setPickerOpen((v) => !v)}
+            >
+              <span aria-hidden="true">＋</span>
+            </button>
+            {pickerOpen ? (
+              <EmojiPicker onPick={(e) => void react(e)} onClose={() => setPickerOpen(false)} />
+            ) : null}
+          </div>
+        </div>
 
-      <form className="comment-form" onSubmit={submitComment}>
-        <input
-          type="text"
-          maxLength={280}
-          placeholder="Add a comment…"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          disabled={busy}
-          aria-label={`Comment on ${post.displayName}'s move`}
-        />
-        <button
-          type="submit"
-          className="ghost-btn"
-          disabled={busy || draft.trim().length < 1}
-        >
-          Post
-        </button>
-      </form>
+        {comments.length > 0 ? (
+          <ul className="comment-list">
+            {comments.map((c) => (
+              <li key={c.id}>
+                <span className="comment-author">{c.displayName}</span>
+                <span className="comment-body">{c.body}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        <form className="comment-form" onSubmit={submitComment}>
+          <input
+            type="text"
+            maxLength={280}
+            placeholder="Add a comment…"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            disabled={busy}
+            aria-label={`Comment on ${post.displayName}'s move`}
+          />
+          <button
+            type="submit"
+            className="ghost-btn"
+            disabled={busy || draft.trim().length < 1}
+          >
+            Post
+          </button>
+        </form>
+      </div>
     </article>
   )
 }

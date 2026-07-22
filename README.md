@@ -15,11 +15,15 @@ modules on bleeding-edge Node.)
 
 1. Pick one of three (Easy / Medium / Hard) — the difficulty is an effort
    ladder: quick / another room / step outside.
-2. Take a live photo of the prompt.
-3. It's accepted and **posted to the feed**; points are awarded.
-4. A cooldown (`COOLDOWN_MINUTES`, default 60) locks new moves until it passes.
-5. The team reacts (👏 🔥 🌿 💧 😌) and comments on the feed; the leaderboard
-   updates live.
+2. Take a **live photo** (camera only — no library uploads), add a caption, and
+   choose whether to share it to the feed (on by default).
+3. It's accepted and **posted to the feed**; points are awarded
+   (10 / 25 / 50 by difficulty).
+4. A cooldown (`COOLDOWN_MINUTES`, default 30) locks new moves until it passes.
+   Opt into a **bell reminder** in Settings to get pinged the moment it ends.
+5. The team reacts with **any emoji** (Slack-style) and comments; **every
+   reaction your post receives earns you +2 points**. The leaderboard is
+   **weekly** — it resets every Monday — and updates live over SSE.
 
 > Photos are verified socially by the feed rather than by a model — the demo
 > auto-accepts. Google sign-in (domain-locked) is the planned next phase; the

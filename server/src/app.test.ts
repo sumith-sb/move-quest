@@ -135,6 +135,7 @@ describe('json store', () => {
         displayName: 'Tester',
         createdAt: '2026-01-01T00:00:00.000Z',
         cooldownUntil: null,
+        avatarUrl: null,
       })
     })
     const store = await readStore()
@@ -151,12 +152,15 @@ describe('json store', () => {
         displayName: 'Scorer',
         createdAt: '2026-01-01T00:00:00.000Z',
         cooldownUntil: null,
+        avatarUrl: null,
       })
       store.attempts.push({
         id: 'a1',
         userId: 'u1',
         challengeId: 'ch_plant',
         status: 'accepted',
+        caption: null,
+        sharedToFeed: true,
         photoPath: null,
         photoSha256: null,
         confidence: 0.9,

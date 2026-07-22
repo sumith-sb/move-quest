@@ -38,12 +38,17 @@ export async function readStore(): Promise<StoreData> {
     const raw = await readFile(STORE_PATH, 'utf8')
     const parsed = JSON.parse(raw) as StoreData
     return {
-      // Normalize older records that predate the cooldown field.
+      // Normalize older records that predate newer fields.
       users: (parsed.users ?? []).map((u) => ({
         ...u,
         cooldownUntil: u.cooldownUntil ?? null,
+        avatarUrl: u.avatarUrl ?? null,
       })),
-      attempts: parsed.attempts ?? [],
+      attempts: (parsed.attempts ?? []).map((a) => ({
+        ...a,
+        caption: a.caption ?? null,
+        sharedToFeed: a.sharedToFeed ?? true,
+      })),
       scores: parsed.scores ?? [],
       reactions: parsed.reactions ?? [],
       comments: parsed.comments ?? [],

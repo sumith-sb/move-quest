@@ -12,7 +12,7 @@ import {
   remainingCount,
   toPublicChallenge,
 } from './challenges.js'
-import { rankLeaderboard, rebuildScore } from './leaderboard.js'
+import { rebuildScore, weeklyLeaderboard, weeklyScore } from './leaderboard.js'
 import { type PhotoVerifier } from './ollama.js'
 import {
   extensionForMime,
@@ -34,12 +34,21 @@ const PORT = Number(process.env.PORT ?? 3001)
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 
 /** Movement cooldown — after a post, no new challenge or post until it passes.
- *  This is the pacing mechanic: get up roughly once an hour, not every minute. */
-const COOLDOWN_MINUTES = Number(process.env.COOLDOWN_MINUTES ?? 60)
+ *  This is the pacing mechanic: get up roughly twice an hour, not every minute. */
+const COOLDOWN_MINUTES = Number(process.env.COOLDOWN_MINUTES ?? 30)
 const COOLDOWN_MS = Math.max(0, COOLDOWN_MINUTES) * 60 * 1000
 
-/** The curated reaction set — small and meaningful, not a full emoji picker. */
-const REACTION_EMOJIS = ['👏', '🔥', '🌿', '💧', '😌'] as const
+const MAX_CAPTION = 140
+
+/** Accept any single emoji (Slack-style), not a fixed set. */
+function isEmoji(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    value.length > 0 &&
+    [...value].length <= 8 &&
+    /\p{Extended_Pictographic}/u.test(value)
+  )
+}
 
 type SseClient = {
   id: string
@@ -85,12 +94,13 @@ function cooldownRemainingMs(user: Pick<User, 'cooldownUntil'>): number {
   return Math.max(0, new Date(user.cooldownUntil).getTime() - Date.now())
 }
 
-/** Build the shared feed from accepted attempts, newest first, with reaction
- *  buckets (all curated emojis) and comments, from the viewer's perspective. */
+/** Build the shared feed from shared, accepted attempts — newest first — with
+ *  reaction buckets (any emoji used, most-used first) and comments, from the
+ *  viewer's perspective. */
 function buildFeed(store: StoreData, viewerId: string): FeedPost[] {
   const posts: FeedPost[] = []
   const accepted = store.attempts
-    .filter((a) => a.status === 'accepted' && a.photoPath)
+    .filter((a) => a.status === 'accepted' && a.sharedToFeed !== false && a.photoPath)
     .sort((a, b) => (a.awardedAt ?? '') < (b.awardedAt ?? '') ? 1 : -1)
 
   for (const attempt of accepted) {
@@ -98,15 +108,19 @@ function buildFeed(store: StoreData, viewerId: string): FeedPost[] {
     const challenge = getChallenge(attempt.challengeId)
     if (!author || !challenge) continue
 
-    const attemptReactions = store.reactions.filter((r) => r.attemptId === attempt.id)
-    const reactions = REACTION_EMOJIS.map((emoji) => {
-      const bucket = attemptReactions.filter((r) => r.emoji === emoji)
-      return {
-        emoji,
-        count: bucket.length,
-        mine: bucket.some((r) => r.userId === viewerId),
-      }
-    })
+    // Group reactions by emoji, in the order they first appeared, most first.
+    const byEmoji = new Map<string, { count: number; mine: boolean; first: string }>()
+    for (const r of store.reactions.filter((r) => r.attemptId === attempt.id)) {
+      const bucket = byEmoji.get(r.emoji) ?? { count: 0, mine: false, first: r.createdAt }
+      bucket.count += 1
+      if (r.userId === viewerId) bucket.mine = true
+      if (r.createdAt < bucket.first) bucket.first = r.createdAt
+      byEmoji.set(r.emoji, bucket)
+    }
+    const reactions = [...byEmoji.entries()]
+      .map(([emoji, b]) => ({ emoji, count: b.count, mine: b.mine, first: b.first }))
+      .sort((a, b) => b.count - a.count || (a.first < b.first ? -1 : 1))
+      .map(({ emoji, count, mine }) => ({ emoji, count, mine }))
 
     const comments = store.comments
       .filter((c) => c.attemptId === attempt.id)
@@ -121,8 +135,10 @@ function buildFeed(store: StoreData, viewerId: string): FeedPost[] {
     posts.push({
       id: attempt.id,
       displayName: author.displayName,
+      avatarUrl: author.avatarUrl,
       isMine: attempt.userId === viewerId,
       photoUrl: `/api/feed/${attempt.id}/photo`,
+      caption: attempt.caption,
       challengeTitle: challenge.title,
       room: challenge.room,
       vibe: challenge.vibe,
@@ -145,7 +161,7 @@ function broadcastLeaderboard(entries: LeaderboardEntry[]): void {
 
 async function pushLeaderboard(): Promise<void> {
   const store = await readStore()
-  broadcastLeaderboard(rankLeaderboard(store.scores))
+  broadcastLeaderboard(weeklyLeaderboard(store))
 }
 
 function getUserId(req: Request): string | null {
@@ -211,6 +227,7 @@ export function createApp() {
           displayName,
           createdAt: nowIso(),
           cooldownUntil: null,
+          avatarUrl: null,
         }
         store.users.push(created)
         store.scores.push({
@@ -244,13 +261,7 @@ export function createApp() {
       res.status(404).json({ error: { code: 'NOT_FOUND', message: 'User not found' } })
       return
     }
-    const score = store.scores.find((s) => s.userId === userId) ?? {
-      userId,
-      displayName: user.displayName,
-      totalPoints: 0,
-      acceptedCount: 0,
-      updatedAt: user.createdAt,
-    }
+    const score = weeklyScore(store, userId, user.displayName)
     res.json({ user, score })
   })
 
@@ -336,6 +347,8 @@ export function createApp() {
           userId,
           challengeId,
           status: 'selected',
+          caption: null,
+          sharedToFeed: true,
           photoPath: null,
           photoSha256: null,
           confidence: null,
@@ -402,6 +415,12 @@ export function createApp() {
       if (!userId) return
 
       const attemptId = req.params.attemptId
+      const rawCaption =
+        typeof req.body?.caption === 'string' ? req.body.caption.trim() : ''
+      const caption = rawCaption ? rawCaption.slice(0, MAX_CAPTION) : null
+      // Multer delivers form fields as strings; default to shared unless opted out.
+      const sharedToFeed = req.body?.sharedToFeed !== 'false'
+
       const file = req.file
       if (!file) {
         res.status(400).json({
@@ -549,6 +568,8 @@ export function createApp() {
         }
 
         attempt.status = 'processing'
+        attempt.caption = caption
+        attempt.sharedToFeed = sharedToFeed
         attempt.photoPath = relPath
         attempt.photoSha256 = sha256
         attempt.updatedAt = nowIso()
@@ -722,7 +743,7 @@ export function createApp() {
 
   app.get('/api/leaderboard', async (_req, res) => {
     const store = await readStore()
-    res.json({ leaderboard: rankLeaderboard(store.scores) })
+    res.json({ leaderboard: weeklyLeaderboard(store) })
   })
 
   app.get('/api/leaderboard/stream', async (req, res) => {
@@ -736,7 +757,7 @@ export function createApp() {
 
     const store = await readStore()
     res.write(
-      `event: leaderboard\ndata: ${JSON.stringify(rankLeaderboard(store.scores))}\n\n`,
+      `event: leaderboard\ndata: ${JSON.stringify(weeklyLeaderboard(store))}\n\n`,
     )
 
     const heartbeat = setInterval(() => {
@@ -754,7 +775,7 @@ export function createApp() {
     const userId = requireUserId(req, res)
     if (!userId) return
     const store = await readStore()
-    res.json({ feed: buildFeed(store, userId), emojis: REACTION_EMOJIS })
+    res.json({ feed: buildFeed(store, userId) })
   })
 
   // Public (within-app) photo for a posted challenge. Only accepted attempts
@@ -777,10 +798,10 @@ export function createApp() {
   app.post('/api/feed/:attemptId/react', async (req, res) => {
     const userId = requireUserId(req, res)
     if (!userId) return
-    const emoji = typeof req.body?.emoji === 'string' ? req.body.emoji : ''
-    if (!REACTION_EMOJIS.includes(emoji as (typeof REACTION_EMOJIS)[number])) {
+    const emoji = req.body?.emoji
+    if (!isEmoji(emoji)) {
       res.status(400).json({
-        error: { code: 'INVALID_EMOJI', message: 'Unsupported reaction' },
+        error: { code: 'INVALID_EMOJI', message: 'Reaction must be a single emoji' },
       })
       return
     }
@@ -811,6 +832,8 @@ export function createApp() {
       })
       const store = await readStore()
       const post = buildFeed(store, userId).find((p) => p.id === req.params.attemptId)
+      // Reactions earn the author points — refresh the weekly board live.
+      await pushLeaderboard()
       res.json({ reactions: post?.reactions ?? [] })
     } catch (err) {
       if ((err as Error).name === 'NOT_FOUND') {

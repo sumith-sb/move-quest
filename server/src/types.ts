@@ -52,6 +52,8 @@ export interface User {
   createdAt: string
   /** Movement cooldown: no new challenge or post until this passes. */
   cooldownUntil: string | null
+  /** Profile photo — populated from Google on sign-in (Phase 3); null = initials. */
+  avatarUrl: string | null
 }
 
 export interface Attempt {
@@ -59,6 +61,8 @@ export interface Attempt {
   userId: string
   challengeId: string
   status: AttemptStatus
+  caption: string | null
+  sharedToFeed: boolean
   photoPath: string | null
   photoSha256: string | null
   confidence: number | null
@@ -167,8 +171,10 @@ export interface FeedComment {
 export interface FeedPost {
   id: string
   displayName: string
+  avatarUrl: string | null
   isMine: boolean
   photoUrl: string
+  caption: string | null
   challengeTitle: string
   room: Room
   vibe: Vibe

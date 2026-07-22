@@ -84,6 +84,8 @@ export async function verifyAttempt(
   userId: string,
   attemptId: string,
   photo: File,
+  caption: string,
+  sharedToFeed: boolean,
 ): Promise<{
   attempt: AttemptSummary
   challenge: Challenge
@@ -91,6 +93,8 @@ export async function verifyAttempt(
 }> {
   const form = new FormData()
   form.append('photo', photo)
+  if (caption.trim()) form.append('caption', caption.trim())
+  form.append('sharedToFeed', sharedToFeed ? 'true' : 'false')
   const res = await fetch(`/api/attempts/${attemptId}/verify`, {
     method: 'POST',
     headers: authHeaders(userId),
