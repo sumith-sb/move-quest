@@ -1,6 +1,6 @@
-import { ArrowLeft, ArrowRight, Footprints, Images, Trophy } from 'lucide-react'
+import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
-import type { LucideIcon } from 'lucide-react'
+import { OnboardingArt } from './OnboardingArt'
 
 interface Props {
   busy: boolean
@@ -8,19 +8,16 @@ interface Props {
   onSubmit: (displayName: string) => void
 }
 
-const STEPS: { icon: LucideIcon; title: string; body: string }[] = [
+const STEPS: { title: string; body: string }[] = [
   {
-    icon: Footprints,
     title: 'Get off your chair',
     body: 'Move Quest nudges you to stand up and move somewhere new a few times a day. Small moves, real breaks.',
   },
   {
-    icon: Trophy,
     title: 'Pick one of three',
     body: 'Each round gives you an Easy, a Medium, and a Hard move. Do one, snap a photo, earn points. Then a cooldown paces you.',
   },
   {
-    icon: Images,
     title: 'Share with the team',
     body: 'Your shot lands in a shared feed. React with any emoji and comment. Every reaction your post gets earns you bonus points.',
   },
@@ -47,12 +44,7 @@ export function Onboarding({ busy, error, onSubmit }: Props) {
 
       {!onNameStep ? (
         <div className="onboarding-step">
-          <div className="onboarding-icon" aria-hidden="true">
-            {(() => {
-              const Icon = STEPS[step].icon
-              return <Icon size={34} strokeWidth={1.75} />
-            })()}
-          </div>
+          <OnboardingArt step={step} />
           <h1>{STEPS[step].title}</h1>
           <p className="lede">{STEPS[step].body}</p>
 
