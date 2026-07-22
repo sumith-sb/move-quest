@@ -80,6 +80,7 @@ export interface ReactionSummary {
 export interface FeedComment {
   id: string
   displayName: string
+  avatarUrl: string | null
   body: string
   createdAt: string
 }

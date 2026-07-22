@@ -56,9 +56,12 @@ export async function fetchMe(
   return parseJson(res)
 }
 
-export async function drawChallenges(
-  userId: string,
-): Promise<{ challenges: Challenge[]; remaining: number; cooldownUntil: string | null }> {
+export async function drawChallenges(userId: string): Promise<{
+  challenges: Challenge[]
+  freeChallenge: Challenge
+  remaining: number
+  cooldownUntil: string | null
+}> {
   const res = await fetch('/api/challenges/draw', {
     headers: authHeaders(userId),
   })

@@ -1,6 +1,7 @@
+import { Plus, Send, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { commentOnPost, fetchFeed, reactToPost } from '../api'
-import { ROOM_EMOJI, ROOM_LABEL, timeAgo } from '../labels'
+import { ROOM_ICON, ROOM_LABEL, timeAgo } from '../labels'
 import type { FeedComment, FeedPost, ReactionSummary } from '../types'
 import { Avatar } from './Avatar'
 import { EmojiPicker } from './EmojiPicker'
@@ -15,6 +16,7 @@ export function FeedScreen({ userId, onOpenMenu }: Props) {
   const [posts, setPosts] = useState<FeedPost[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [lightbox, setLightbox] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -37,7 +39,6 @@ export function FeedScreen({ userId, onOpenMenu }: Props) {
     <section className="screen feed-screen" aria-labelledby="feed-title">
       <header className="topbar">
         <MenuButton onClick={onOpenMenu} />
-        <p className="eyebrow">The Team</p>
       </header>
 
       <h1 id="feed-title">Feed</h1>
@@ -62,25 +63,43 @@ export function FeedScreen({ userId, onOpenMenu }: Props) {
         <ul className="feed-list">
           {posts.map((post, index) => (
             <li key={post.id} style={{ animationDelay: `${Math.min(index, 8) * 50}ms` }}>
-              <PostCard post={post} userId={userId} />
+              <PostCard post={post} userId={userId} onOpenPhoto={setLightbox} />
             </li>
           ))}
         </ul>
       )}
+
+      {lightbox ? (
+        <div className="lightbox" onClick={() => setLightbox(null)}>
+          <button type="button" className="lightbox-close" aria-label="Close" onClick={() => setLightbox(null)}>
+            <X size={24} />
+          </button>
+          <img src={lightbox} alt="Full size" onClick={(e) => e.stopPropagation()} />
+        </div>
+      ) : null}
     </section>
   )
 }
 
-function PostCard({ post, userId }: { post: FeedPost; userId: string }) {
+function PostCard({
+  post,
+  userId,
+  onOpenPhoto,
+}: {
+  post: FeedPost
+  userId: string
+  onOpenPhoto: (url: string) => void
+}) {
   const [reactions, setReactions] = useState<ReactionSummary[]>(post.reactions)
   const [comments, setComments] = useState<FeedComment[]>(post.comments)
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const RoomIcon = ROOM_ICON[post.room]
 
   async function react(emoji: string) {
+    if (post.isMine) return
     setPickerOpen(false)
-    // Optimistic: toggle an existing chip or add a new one.
     setReactions((cur) => {
       const existing = cur.find((r) => r.emoji === emoji)
       if (existing) {
@@ -98,7 +117,8 @@ function PostCard({ post, userId }: { post: FeedPost; userId: string }) {
       const authoritative = await reactToPost(userId, post.id, emoji)
       setReactions(authoritative)
     } catch {
-      // Best-effort — leave the optimistic state.
+      const fresh = await reactToPost(userId, post.id, emoji).catch(() => null)
+      if (fresh) setReactions(fresh)
     }
   }
 
@@ -128,55 +148,73 @@ function PostCard({ post, userId }: { post: FeedPost; userId: string }) {
             {post.isMine ? ' · you' : ''}
           </span>
           <span className="feed-sub">
-            {ROOM_EMOJI[post.room]} {ROOM_LABEL[post.room]} · {timeAgo(post.createdAt)}
+            <RoomIcon size={12} strokeWidth={2} aria-hidden="true" />
+            {ROOM_LABEL[post.room]} · {timeAgo(post.createdAt)}
           </span>
         </div>
         <span className="feed-points">+{post.points}</span>
       </header>
 
-      <div className="feed-photo">
+      <button
+        type="button"
+        className="feed-photo"
+        onClick={() => onOpenPhoto(post.photoUrl)}
+        aria-label="View full size"
+      >
         <img src={post.photoUrl} alt={`${post.displayName}: ${post.challengeTitle}`} loading="lazy" />
-      </div>
+      </button>
 
       <div className="feed-body">
         <p className="feed-challenge">{post.challengeTitle}</p>
         {post.caption ? <p className="feed-caption">{post.caption}</p> : null}
 
         <div className="reaction-bar">
-          {reactions.map((r) => (
-            <button
-              key={r.emoji}
-              type="button"
-              className={`reaction ${r.mine ? 'mine' : ''}`}
-              aria-pressed={r.mine}
-              onClick={() => void react(r.emoji)}
-            >
-              <span aria-hidden="true">{r.emoji}</span>
-              <span className="reaction-count">{r.count}</span>
-            </button>
-          ))}
-          <div className="reaction-add">
-            <button
-              type="button"
-              className="reaction add"
-              aria-label="Add a reaction"
-              aria-expanded={pickerOpen}
-              onClick={() => setPickerOpen((v) => !v)}
-            >
-              <span aria-hidden="true">＋</span>
-            </button>
-            {pickerOpen ? (
-              <EmojiPicker onPick={(e) => void react(e)} onClose={() => setPickerOpen(false)} />
-            ) : null}
-          </div>
+          {reactions.map((r) =>
+            post.isMine ? (
+              <span key={r.emoji} className={`reaction static ${r.mine ? 'mine' : ''}`}>
+                <span aria-hidden="true">{r.emoji}</span>
+                <span className="reaction-count">{r.count}</span>
+              </span>
+            ) : (
+              <button
+                key={r.emoji}
+                type="button"
+                className={`reaction ${r.mine ? 'mine' : ''}`}
+                aria-pressed={r.mine}
+                onClick={() => void react(r.emoji)}
+              >
+                <span aria-hidden="true">{r.emoji}</span>
+                <span className="reaction-count">{r.count}</span>
+              </button>
+            ),
+          )}
+          {!post.isMine ? (
+            <div className="reaction-add">
+              <button
+                type="button"
+                className="reaction add"
+                aria-label="Add a reaction"
+                aria-expanded={pickerOpen}
+                onClick={() => setPickerOpen((v) => !v)}
+              >
+                <Plus size={16} strokeWidth={2.5} />
+              </button>
+              {pickerOpen ? (
+                <EmojiPicker onPick={(e) => void react(e)} onClose={() => setPickerOpen(false)} />
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         {comments.length > 0 ? (
           <ul className="comment-list">
             {comments.map((c) => (
               <li key={c.id}>
-                <span className="comment-author">{c.displayName}</span>
-                <span className="comment-body">{c.body}</span>
+                <Avatar name={c.displayName} avatarUrl={c.avatarUrl} size={26} />
+                <span className="comment-text">
+                  <span className="comment-author">{c.displayName}</span>
+                  <span className="comment-body">{c.body}</span>
+                </span>
               </li>
             ))}
           </ul>
@@ -194,10 +232,11 @@ function PostCard({ post, userId }: { post: FeedPost; userId: string }) {
           />
           <button
             type="submit"
-            className="ghost-btn"
+            className="ghost-btn icon-btn comment-send"
             disabled={busy || draft.trim().length < 1}
+            aria-label="Post comment"
           >
-            Post
+            <Send size={16} strokeWidth={2} />
           </button>
         </form>
       </div>

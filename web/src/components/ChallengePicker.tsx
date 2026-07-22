@@ -1,30 +1,34 @@
+import { Plus, Shuffle, Upload } from 'lucide-react'
 import { formatDuration, useCountdown } from '../countdown'
-import { DIFFICULTY_LABEL, ROOM_EMOJI, ROOM_LABEL } from '../labels'
+import { DIFFICULTY_LABEL } from '../labels'
 import type { Challenge } from '../types'
 import { MenuButton } from './NavMenu'
+import { RoomChip } from './RoomChip'
 
 interface Props {
   challenges: Challenge[]
-  remaining: number
+  freeChallenge: Challenge | null
   cooldownUntil: string | null
   scorePoints: number
   displayName: string
   busyId: string | null
   error: string | null
   onPick: (challenge: Challenge) => void
+  onReshuffle: () => void
   onOpenMenu: () => void
   onOpenFeed: () => void
 }
 
 export function ChallengePicker({
   challenges,
-  remaining,
+  freeChallenge,
   cooldownUntil,
   scorePoints,
   displayName,
   busyId,
   error,
   onPick,
+  onReshuffle,
   onOpenMenu,
   onOpenFeed,
 }: Props) {
@@ -34,16 +38,16 @@ export function ChallengePicker({
   return (
     <section className="screen challenges-screen" aria-labelledby="pick-title">
       <header className="topbar">
-        <div>
-          <p className="eyebrow">Today&apos;s Moves</p>
-          <h1 id="pick-title">{cooling ? 'You Moved' : 'Pick One'}</h1>
-        </div>
         <MenuButton onClick={onOpenMenu} />
+        <div className="player-chip" aria-live="polite">
+          <span className="player-name">{displayName}</span>
+          <span className="player-score">{scorePoints} pts</span>
+        </div>
       </header>
 
-      <div className="player-chip" aria-live="polite">
-        <span className="player-name">{displayName}</span>
-        <span className="player-score">{scorePoints} pts</span>
+      <div className="screen-intro">
+        <p className="eyebrow">Today&apos;s Moves</p>
+        <h1 id="pick-title">{cooling ? 'You Moved' : 'Pick One'}</h1>
       </div>
 
       {error ? (
@@ -57,7 +61,7 @@ export function ChallengePicker({
           <p className="eyebrow">Recovering</p>
           <p className="cooldown-time">{formatDuration(cooldownMs)}</p>
           <p className="muted">
-            Nice — you got up. Your next move unlocks when the timer ends. Go
+            Nice, you got up. Your next move unlocks when the timer ends. Go
             cheer someone on in the feed meanwhile.
           </p>
           <button type="button" className="primary-btn" onClick={onOpenFeed}>
@@ -73,43 +77,69 @@ export function ChallengePicker({
           </button>
         </div>
       ) : (
-        <ul className="challenge-list">
-          {challenges.map((challenge, index) => (
-            <li key={challenge.id} style={{ animationDelay: `${index * 60}ms` }}>
-              <button
-                type="button"
-                className={`challenge-card difficulty-${challenge.difficulty}`}
-                disabled={busyId !== null}
-                onClick={() => onPick(challenge)}
-              >
-                <div className="card-meta">
-                  <span className="diff-pill">
-                    {DIFFICULTY_LABEL[challenge.difficulty]}
-                  </span>
-                  <span className="points-stamp">+{challenge.points}</span>
-                </div>
-                <h2>{challenge.title}</h2>
-                <p>{challenge.prompt}</p>
-                <div className="card-foot">
-                  <span className="room-chip">
-                    <span aria-hidden="true">{ROOM_EMOJI[challenge.room]}</span>
-                    {ROOM_LABEL[challenge.room]}
-                  </span>
-                  <span className="card-cta">
-                    {busyId === challenge.id ? 'Locking…' : 'Shoot this'}
-                  </span>
-                </div>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+        <>
+          <ul className="challenge-list">
+            {challenges.map((challenge, index) => (
+              <li key={challenge.id} style={{ animationDelay: `${index * 60}ms` }}>
+                <button
+                  type="button"
+                  className={`challenge-card difficulty-${challenge.difficulty}`}
+                  disabled={busyId !== null}
+                  onClick={() => onPick(challenge)}
+                >
+                  <div className="card-meta">
+                    <span className="diff-pill">
+                      {DIFFICULTY_LABEL[challenge.difficulty]}
+                    </span>
+                    <span className="points-stamp">+{challenge.points}</span>
+                  </div>
+                  <h2>{challenge.title}</h2>
+                  <p>{challenge.prompt}</p>
+                  <div className="card-foot">
+                    <RoomChip room={challenge.room} />
+                    <span className="card-cta">
+                      {busyId === challenge.id ? 'Locking…' : 'Shoot this'}
+                    </span>
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
 
-      {!cooling && challenges.length > 0 ? (
-        <footer className="screen-footer">
-          <p className="muted">{remaining} challenges left in the pool</p>
-        </footer>
-      ) : null}
+          <div className="picker-actions">
+            <button
+              type="button"
+              className="reshuffle-btn"
+              onClick={onReshuffle}
+              disabled={busyId !== null}
+            >
+              <Shuffle size={16} strokeWidth={2} />
+              Reshuffle
+            </button>
+          </div>
+
+          {freeChallenge ? (
+            <button
+              type="button"
+              className="free-card"
+              disabled={busyId !== null}
+              onClick={() => onPick(freeChallenge)}
+            >
+              <span className="free-icon" aria-hidden="true">
+                <Upload size={20} strokeWidth={2} />
+              </span>
+              <span className="free-text">
+                <span className="free-title">
+                  Share anything <Plus size={14} strokeWidth={2.5} />
+                </span>
+                <span className="free-sub">
+                  Upload any photo and add a caption ({freeChallenge.points} pts)
+                </span>
+              </span>
+            </button>
+          ) : null}
+        </>
+      )}
     </section>
   )
 }

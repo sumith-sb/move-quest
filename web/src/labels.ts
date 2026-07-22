@@ -1,3 +1,12 @@
+import {
+  CookingPot,
+  Footprints,
+  type LucideIcon,
+  PanelTop,
+  Sofa,
+  Sparkles,
+  Trees,
+} from 'lucide-react'
 import type { Difficulty, Room } from './types'
 
 export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
@@ -15,13 +24,13 @@ export const ROOM_LABEL: Record<Room, string> = {
   anywhere: 'Anywhere',
 }
 
-export const ROOM_EMOJI: Record<Room, string> = {
-  kitchen: '🍳',
-  window: '🪟',
-  outdoors: '🌤',
-  hallway: '🚶',
-  lounge: '🛋',
-  anywhere: '✨',
+export const ROOM_ICON: Record<Room, LucideIcon> = {
+  kitchen: CookingPot,
+  window: PanelTop,
+  outdoors: Trees,
+  hallway: Footprints,
+  lounge: Sofa,
+  anywhere: Sparkles,
 }
 
 export function timeAgo(iso: string, now = Date.now()): string {

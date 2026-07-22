@@ -1,3 +1,4 @@
+import { Images, type LucideIcon, Menu, Settings, Target, Trophy, X } from 'lucide-react'
 import { useEffect } from 'react'
 import type { Screen } from '../types'
 
@@ -8,11 +9,11 @@ interface Props {
   onClose: () => void
 }
 
-const ITEMS: { screen: Screen; label: string; emoji: string }[] = [
-  { screen: 'challenges', label: 'Challenges', emoji: '🎯' },
-  { screen: 'feed', label: 'Feed', emoji: '🗂' },
-  { screen: 'leaderboard', label: 'Leaderboard', emoji: '🏆' },
-  { screen: 'settings', label: 'Settings', emoji: '⚙️' },
+const ITEMS: { screen: Screen; label: string; icon: LucideIcon }[] = [
+  { screen: 'challenges', label: 'Challenges', icon: Target },
+  { screen: 'feed', label: 'Feed', icon: Images },
+  { screen: 'leaderboard', label: 'Leaderboard', icon: Trophy },
+  { screen: 'settings', label: 'Settings', icon: Settings },
 ]
 
 export function NavMenu({ open, current, onNavigate, onClose }: Props) {
@@ -33,22 +34,28 @@ export function NavMenu({ open, current, onNavigate, onClose }: Props) {
         aria-label="Main menu"
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="nav-sheet-title">Move Quest</p>
+        <div className="nav-sheet-head">
+          <p className="nav-sheet-title">Move Quest</p>
+          <button type="button" className="nav-close" onClick={onClose} aria-label="Close menu">
+            <X size={20} />
+          </button>
+        </div>
         <ul>
-          {ITEMS.map((item) => (
-            <li key={item.screen}>
-              <button
-                type="button"
-                className={`nav-item ${current === item.screen ? 'active' : ''}`}
-                onClick={() => onNavigate(item.screen)}
-              >
-                <span aria-hidden="true" className="nav-item-emoji">
-                  {item.emoji}
-                </span>
-                {item.label}
-              </button>
-            </li>
-          ))}
+          {ITEMS.map((item) => {
+            const Icon = item.icon
+            return (
+              <li key={item.screen}>
+                <button
+                  type="button"
+                  className={`nav-item ${current === item.screen ? 'active' : ''}`}
+                  onClick={() => onNavigate(item.screen)}
+                >
+                  <Icon size={20} strokeWidth={2} aria-hidden="true" />
+                  {item.label}
+                </button>
+              </li>
+            )
+          })}
         </ul>
       </nav>
     </div>
@@ -67,9 +74,7 @@ export function MenuButton({ onClick }: MenuButtonProps) {
       onClick={onClick}
       aria-label="Open menu"
     >
-      <span />
-      <span />
-      <span />
+      <Menu size={22} strokeWidth={2} />
     </button>
   )
 }

@@ -1,3 +1,4 @@
+import { Clock } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { fetchLeaderboard, subscribeLeaderboard } from '../api'
 import type { LeaderboardEntry } from '../types'
@@ -8,10 +9,39 @@ interface Props {
   onOpenMenu: () => void
 }
 
+/** ms until the next Monday 00:00 UTC (the weekly reset boundary). */
+function msUntilReset(now = Date.now()): number {
+  const d = new Date(now)
+  const daysUntilMonday = ((8 - d.getUTCDay()) % 7) || 7
+  const next = Date.UTC(
+    d.getUTCFullYear(),
+    d.getUTCMonth(),
+    d.getUTCDate() + daysUntilMonday,
+  )
+  return next - now
+}
+
+function formatReset(ms: number): string {
+  const totalMin = Math.max(0, Math.floor(ms / 60000))
+  const d = Math.floor(totalMin / 1440)
+  const h = Math.floor((totalMin % 1440) / 60)
+  const m = totalMin % 60
+  if (d > 0) return `${d}d ${h}h`
+  if (h > 0) return `${h}h ${m}m`
+  return `${m}m`
+}
+
+const MEDAL = ['rank-gold', 'rank-silver', 'rank-bronze']
+
 export function LeaderboardScreen({ userId, onOpenMenu }: Props) {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [live, setLive] = useState(false)
+  const [resetMs, setResetMs] = useState(() => msUntilReset())
+
+  useEffect(() => {
+    const id = setInterval(() => setResetMs(msUntilReset()), 60000)
+    return () => clearInterval(id)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -27,27 +57,26 @@ export function LeaderboardScreen({ userId, onOpenMenu }: Props) {
       (data) => {
         if (!cancelled) {
           setEntries(data)
-          setLive(true)
           setError(null)
         }
       },
-      () => {
-        if (!cancelled) setLive(false)
-      },
+      () => {},
     )
-
     return () => {
       cancelled = true
       unsubscribe()
     }
   }, [])
 
+  const [top, rest] = [entries.slice(0, 3), entries.slice(3)]
+
   return (
     <section className="screen board-screen" aria-labelledby="board-title">
       <header className="topbar">
         <MenuButton onClick={onOpenMenu} />
-        <span className={`live-pill ${live ? 'on' : ''}`} aria-live="polite">
-          {live ? 'Live' : 'Connecting'}
+        <span className="reset-chip">
+          <Clock size={14} strokeWidth={2} aria-hidden="true" />
+          Resets in {formatReset(resetMs)}
         </span>
       </header>
 
@@ -63,31 +92,50 @@ export function LeaderboardScreen({ userId, onOpenMenu }: Props) {
       {entries.length === 0 ? (
         <div className="empty-state">
           <h2>No scores yet</h2>
-          <p>Be first on the board — go snap a challenge.</p>
+          <p>Be first on the board, go snap a challenge.</p>
         </div>
       ) : (
-        <ol className="board-list">
-          {entries.map((entry, index) => {
-            const mine = entry.userId === userId
-            return (
-              <li
-                key={entry.userId}
-                className={mine ? 'is-me' : undefined}
-                style={{ animationDelay: `${Math.min(index, 8) * 50}ms` }}
-              >
-                <span className="rank">#{entry.rank}</span>
-                <div className="board-main">
-                  <strong>
-                    {entry.displayName}
-                    {mine ? ' (you)' : ''}
-                  </strong>
-                  <span className="muted">{entry.acceptedCount} cleared</span>
-                </div>
-                <span className="board-points">{entry.totalPoints}</span>
-              </li>
-            )
-          })}
-        </ol>
+        <>
+          {top.length > 0 ? (
+            <ol className="podium">
+              {top.map((entry, i) => {
+                const mine = entry.userId === userId
+                return (
+                  <li key={entry.userId} className={`podium-slot ${MEDAL[i]} ${mine ? 'is-me' : ''}`}>
+                    <span className="podium-rank">{entry.rank}</span>
+                    <span className="podium-name">
+                      {entry.displayName}
+                      {mine ? ' · you' : ''}
+                    </span>
+                    <span className="podium-points">{entry.totalPoints}</span>
+                    <span className="podium-sub">{entry.acceptedCount} moves</span>
+                  </li>
+                )
+              })}
+            </ol>
+          ) : null}
+
+          {rest.length > 0 ? (
+            <ol className="board-list">
+              {rest.map((entry) => {
+                const mine = entry.userId === userId
+                return (
+                  <li key={entry.userId} className={mine ? 'is-me' : undefined}>
+                    <span className="rank">{entry.rank}</span>
+                    <div className="board-main">
+                      <strong>
+                        {entry.displayName}
+                        {mine ? ' · you' : ''}
+                      </strong>
+                      <span className="muted">{entry.acceptedCount} moves</span>
+                    </div>
+                    <span className="board-points">{entry.totalPoints}</span>
+                  </li>
+                )
+              })}
+            </ol>
+          ) : null}
+        </>
       )}
     </section>
   )

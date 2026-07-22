@@ -7,6 +7,7 @@ import cors from 'cors'
 import express, { type Request, type Response } from 'express'
 import multer from 'multer'
 import {
+  FREE_CHALLENGE,
   drawTriad,
   getChallenge,
   remainingCount,
@@ -99,6 +100,7 @@ function cooldownRemainingMs(user: Pick<User, 'cooldownUntil'>): number {
  *  viewer's perspective. */
 function buildFeed(store: StoreData, viewerId: string): FeedPost[] {
   const posts: FeedPost[] = []
+  const avatarOf = new Map(store.users.map((u) => [u.id, u.avatarUrl]))
   const accepted = store.attempts
     .filter((a) => a.status === 'accepted' && a.sharedToFeed !== false && a.photoPath)
     .sort((a, b) => (a.awardedAt ?? '') < (b.awardedAt ?? '') ? 1 : -1)
@@ -128,6 +130,7 @@ function buildFeed(store: StoreData, viewerId: string): FeedPost[] {
       .map((c) => ({
         id: c.id,
         displayName: c.displayName,
+        avatarUrl: avatarOf.get(c.userId) ?? null,
         body: c.body,
         createdAt: c.createdAt,
       }))
@@ -283,6 +286,7 @@ export function createApp() {
     const drawn = drawTriad(completed)
     res.json({
       challenges: drawn.map(toPublicChallenge),
+      freeChallenge: toPublicChallenge(FREE_CHALLENGE),
       remaining: remainingCount(completed),
       cooldownUntil:
         cooldownRemainingMs(user) > 0 ? user.cooldownUntil : null,
@@ -315,27 +319,32 @@ export function createApp() {
           err.name = 'COOLDOWN'
           throw err
         }
+        // The free post is repeatable — every one is a brand-new attempt.
+        const isFree = challengeId === FREE_CHALLENGE.id
+
         const alreadyAccepted = store.attempts.some(
           (a) =>
             a.userId === userId &&
             a.challengeId === challengeId &&
             a.status === 'accepted',
         )
-        if (alreadyAccepted) {
+        if (alreadyAccepted && !isFree) {
           const err = new Error('ALREADY_COMPLETED')
           err.name = 'ALREADY_COMPLETED'
           throw err
         }
 
         // Reuse open attempt for retry, else create a new selected attempt.
-        const open = store.attempts.find(
-          (a) =>
-            a.userId === userId &&
-            a.challengeId === challengeId &&
-            (a.status === 'selected' ||
-              a.status === 'rejected' ||
-              a.status === 'error'),
-        )
+        const open = isFree
+          ? undefined
+          : store.attempts.find(
+              (a) =>
+                a.userId === userId &&
+                a.challengeId === challengeId &&
+                (a.status === 'selected' ||
+                  a.status === 'rejected' ||
+                  a.status === 'error'),
+            )
         if (open) {
           open.status = 'selected'
           open.updatedAt = nowIso()
@@ -484,6 +493,13 @@ export function createApp() {
       if (!challenge) {
         res.status(404).json({
           error: { code: 'NOT_FOUND', message: 'Challenge not found' },
+        })
+        return
+      }
+
+      if (attemptPeek.challengeId === FREE_CHALLENGE.id && !caption) {
+        res.status(400).json({
+          error: { code: 'CAPTION_REQUIRED', message: 'A caption is required for a free post' },
         })
         return
       }
@@ -814,6 +830,11 @@ export function createApp() {
           err.name = 'NOT_FOUND'
           throw err
         }
+        if (attempt.userId === userId) {
+          const err = new Error('OWN_POST')
+          err.name = 'OWN_POST'
+          throw err
+        }
         const existing = store.reactions.findIndex(
           (r) =>
             r.attemptId === attempt.id && r.userId === userId && r.emoji === emoji,
@@ -836,7 +857,14 @@ export function createApp() {
       await pushLeaderboard()
       res.json({ reactions: post?.reactions ?? [] })
     } catch (err) {
-      if ((err as Error).name === 'NOT_FOUND') {
+      const name = (err as Error).name
+      if (name === 'OWN_POST') {
+        res.status(403).json({
+          error: { code: 'OWN_POST', message: 'You can’t react to your own post' },
+        })
+        return
+      }
+      if (name === 'NOT_FOUND') {
         res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Post not found' } })
         return
       }

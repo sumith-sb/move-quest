@@ -38,7 +38,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null)
   const [score, setScore] = useState<Score | null>(null)
   const [challenges, setChallenges] = useState<Challenge[]>([])
-  const [remaining, setRemaining] = useState(0)
+  const [freeChallenge, setFreeChallenge] = useState<Challenge | null>(null)
   const [cooldownUntil, setCooldownUntil] = useState<string | null>(null)
   const [activeChallenge, setActiveChallenge] = useState<Challenge | null>(null)
   const [attempt, setAttempt] = useState<AttemptSummary | null>(null)
@@ -52,7 +52,7 @@ export default function App() {
   const refreshDraw = useCallback(async (userId: string) => {
     const drawn = await drawChallenges(userId)
     setChallenges(drawn.challenges)
-    setRemaining(drawn.remaining)
+    setFreeChallenge(drawn.freeChallenge)
     setCooldownUntil(drawn.cooldownUntil)
   }, [])
 
@@ -206,13 +206,14 @@ export default function App() {
       {screen === 'challenges' && user && score ? (
         <ChallengePicker
           challenges={challenges}
-          remaining={remaining}
+          freeChallenge={freeChallenge}
           cooldownUntil={cooldownUntil}
           scorePoints={score.totalPoints}
           displayName={user.displayName}
           busyId={busyId}
           error={error}
           onPick={handlePick}
+          onReshuffle={() => void refreshDraw(user.id)}
           onOpenMenu={() => setMenuOpen(true)}
           onOpenFeed={() => setScreen('feed')}
         />

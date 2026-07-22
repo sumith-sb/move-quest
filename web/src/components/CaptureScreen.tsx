@@ -1,6 +1,8 @@
+import { ArrowLeft, Camera, ImagePlus } from 'lucide-react'
 import { useId, useRef, useState } from 'react'
-import { DIFFICULTY_LABEL, ROOM_EMOJI, ROOM_LABEL } from '../labels'
+import { DIFFICULTY_LABEL } from '../labels'
 import type { Challenge } from '../types'
+import { RoomChip } from './RoomChip'
 
 interface Props {
   challenge: Challenge
@@ -12,16 +14,13 @@ interface Props {
 
 function isHeicFile(file: File): boolean {
   const mime = file.type.toLowerCase()
-  return (
-    mime.includes('heic') ||
-    mime.includes('heif') ||
-    /\.hei[cf]$/i.test(file.name)
-  )
+  return mime.includes('heic') || mime.includes('heif') || /\.hei[cf]$/i.test(file.name)
 }
 
 export function CaptureScreen({ challenge, busy, error, onBack, onSubmit }: Props) {
-  const cameraInputId = useId()
-  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const isFree = challenge.id === 'ch_free'
+  const inputId = useId()
+  const inputRef = useRef<HTMLInputElement>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [heicNote, setHeicNote] = useState(false)
@@ -35,70 +34,82 @@ export function CaptureScreen({ challenge, busy, error, onBack, onSubmit }: Prop
     setHeicNote(next ? isHeicFile(next) : false)
   }
 
+  const captionMissing = isFree && caption.trim().length === 0
+  const submitLabel = busy
+    ? 'Posting…'
+    : isFree
+      ? 'Share it'
+      : shareToFeed
+        ? 'Post the move'
+        : 'Log the move'
+
   return (
     <section className="screen capture-screen" aria-labelledby="capture-title">
       <header className="topbar">
-        <button type="button" className="ghost-btn" onClick={onBack} disabled={busy}>
+        <button type="button" className="ghost-btn icon-btn" onClick={onBack} disabled={busy}>
+          <ArrowLeft size={18} strokeWidth={2} />
           Back
         </button>
-        <span className="points-stamp compact">+{challenge.points}</span>
+        {!isFree ? <span className="points-stamp compact">+{challenge.points}</span> : null}
       </header>
 
       <div className="capture-copy">
-        <p className="eyebrow">{DIFFICULTY_LABEL[challenge.difficulty]} move</p>
+        <p className="eyebrow">{isFree ? 'Free post' : `${DIFFICULTY_LABEL[challenge.difficulty]} move`}</p>
         <h1 id="capture-title">{challenge.title}</h1>
         <p>{challenge.prompt}</p>
-        <span className="room-chip">
-          <span aria-hidden="true">{ROOM_EMOJI[challenge.room]}</span>
-          Head to the {ROOM_LABEL[challenge.room].toLowerCase()}
-        </span>
+        {!isFree ? <RoomChip room={challenge.room} /> : null}
       </div>
 
       <div className={`viewfinder ${previewUrl ? 'has-preview' : ''}`}>
         {previewUrl ? (
           <img
             src={previewUrl}
-            alt="Your challenge photo"
-            onError={() => {
-              // Chrome often cannot preview HEIC; upload still works.
-              setPreviewUrl(null)
-            }}
+            alt="Your photo"
+            onError={() => setPreviewUrl(null)}
           />
         ) : (
-          <p>{file ? 'Photo ready to share.' : 'Tap below to take a live photo.'}</p>
+          <p>
+            {file
+              ? 'Photo ready to share.'
+              : isFree
+                ? 'Choose any photo from your device.'
+                : 'Tap below to take a live photo.'}
+          </p>
         )}
       </div>
 
       {heicNote ? (
         <p className="muted freshness-hint" role="status">
-          HEIC captured — the server will convert it before it posts.
+          HEIC captured, the server will convert it before it posts.
         </p>
       ) : null}
 
       {file ? (
         <div className="capture-extras">
           <label className="sr-only" htmlFor="caption-input">
-            Add a caption
+            Caption
           </label>
           <input
             id="caption-input"
             className="caption-input"
             type="text"
             maxLength={140}
-            placeholder="Add a caption… (optional)"
+            placeholder={isFree ? 'Add a caption (required)' : 'Add a caption (optional)'}
             value={caption}
             onChange={(e) => setCaption(e.target.value)}
             disabled={busy}
           />
-          <label className="share-toggle">
-            <input
-              type="checkbox"
-              checked={shareToFeed}
-              onChange={(e) => setShareToFeed(e.target.checked)}
-              disabled={busy}
-            />
-            <span>Share to the team feed</span>
-          </label>
+          {!isFree ? (
+            <label className="share-toggle">
+              <input
+                type="checkbox"
+                checked={shareToFeed}
+                onChange={(e) => setShareToFeed(e.target.checked)}
+                disabled={busy}
+              />
+              <span>Share to the team feed</span>
+            </label>
+          ) : null}
         </div>
       ) : null}
 
@@ -109,31 +120,32 @@ export function CaptureScreen({ challenge, busy, error, onBack, onSubmit }: Prop
       ) : null}
 
       <input
-        id={cameraInputId}
-        ref={cameraInputRef}
+        id={inputId}
+        ref={inputRef}
         className="sr-only"
         type="file"
         accept="image/*"
-        capture="environment"
+        {...(isFree ? {} : { capture: 'environment' as const })}
         onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
       />
 
       <div className="action-stack">
         <button
           type="button"
-          className="secondary-btn"
+          className="secondary-btn icon-btn"
           disabled={busy}
-          onClick={() => cameraInputRef.current?.click()}
+          onClick={() => inputRef.current?.click()}
         >
-          {file ? 'Retake photo' : 'Take photo'}
+          {isFree ? <ImagePlus size={18} strokeWidth={2} /> : <Camera size={18} strokeWidth={2} />}
+          {file ? (isFree ? 'Change photo' : 'Retake photo') : isFree ? 'Choose photo' : 'Take photo'}
         </button>
         <button
           type="button"
           className="primary-btn"
-          disabled={!file || busy}
-          onClick={() => file && onSubmit(file, caption, shareToFeed)}
+          disabled={!file || busy || captionMissing}
+          onClick={() => file && onSubmit(file, caption, isFree ? true : shareToFeed)}
         >
-          {busy ? 'Posting…' : shareToFeed ? 'Post the move' : 'Log the move'}
+          {submitLabel}
         </button>
       </div>
     </section>

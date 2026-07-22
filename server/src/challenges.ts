@@ -131,6 +131,21 @@ const CURATED: Challenge[] = [
   },
 ]
 
+/** The always-available free post — upload anything, caption required. Kept
+ *  out of the daily triad; surfaced as a separate option. */
+export const FREE_CHALLENGE: Challenge = {
+  id: 'ch_free',
+  slug: 'share-anything',
+  title: 'Share anything',
+  prompt: 'Upload any photo and tell the team what it is.',
+  difficulty: 'easy',
+  room: 'anywhere',
+  vibe: 'social',
+  points: 5,
+  criteria: [{ id: 'photo', description: 'A photo is attached' }],
+  active: true,
+}
+
 /** [title, prompt, difficulty, room, vibe] — expanded into full challenges. */
 type Seed = readonly [string, string, Difficulty, Room, Vibe]
 
@@ -138,7 +153,7 @@ const SEEDS: Seed[] = [
   // ---------------- EASY — a quick stretch away from the desk --------------
   ['Fresh tea', 'Brew a cup of tea and photograph it steaming.', 'easy', 'kitchen', 'hydrate'],
   ['Coffee run', 'Make a coffee and photograph the full cup.', 'easy', 'kitchen', 'hydrate'],
-  ['Fill the kettle', 'Fill the kettle and set it to boil — photograph it.', 'easy', 'kitchen', 'hydrate'],
+  ['Fill the kettle', 'Fill the kettle, set it to boil, and photograph it.', 'easy', 'kitchen', 'hydrate'],
   ['Cold glass', 'Pour a cold drink and photograph the glass.', 'easy', 'kitchen', 'hydrate'],
   ['Piece of fruit', 'Grab a piece of fruit and photograph it in your hand.', 'easy', 'kitchen', 'hydrate'],
   ['Top up your bottle', 'Refill your water bottle to the brim and photograph it.', 'easy', 'kitchen', 'hydrate'],
@@ -210,7 +225,7 @@ const SEEDS: Seed[] = [
   ['Wipe the counter', 'Wipe down a counter and photograph it clean.', 'medium', 'kitchen', 'tidy'],
   ['Make toast', 'Make toast and photograph it on a plate.', 'medium', 'kitchen', 'craft'],
   ['Plate it nicely', 'Plate some food attractively and photograph it.', 'medium', 'kitchen', 'craft'],
-  ['Coffee, properly', 'Photograph coffee being made — pour, press, or machine.', 'medium', 'kitchen', 'craft'],
+  ['Coffee, properly', 'Photograph coffee being made (pour, press, or machine).', 'medium', 'kitchen', 'craft'],
   ['Tea for the team', 'Offer to make tea and photograph the round.', 'medium', 'kitchen', 'social'],
   ['Take the stairs up', 'Walk up a flight of stairs and photograph the top.', 'medium', 'hallway', 'movement'],
   ['Take the stairs down', 'Walk down a flight of stairs and photograph the bottom.', 'medium', 'hallway', 'movement'],
@@ -304,7 +319,7 @@ const SEEDS: Seed[] = [
   ['Pass it on', 'Photograph handing something to a colleague.', 'hard', 'anywhere', 'social'],
   ['Ask a question', 'Walk over to ask someone something and photograph their space.', 'hard', 'anywhere', 'social'],
   ['Frame within a frame', 'Photograph a scene framed by a doorway or window.', 'hard', 'anywhere', 'craft'],
-  ['Leading lines', 'Photograph strong leading lines — rails, floors, or roads.', 'hard', 'outdoors', 'craft'],
+  ['Leading lines', 'Photograph strong leading lines: rails, floors, or roads.', 'hard', 'outdoors', 'craft'],
   ['Shadow play', 'Photograph a dramatic shadow you went to find.', 'hard', 'outdoors', 'craft'],
   ['Symmetry outside', 'Photograph a symmetrical scene outdoors.', 'hard', 'outdoors', 'craft'],
   ['Something tiny', 'Photograph the smallest interesting detail you can find.', 'hard', 'anywhere', 'craft'],
@@ -312,7 +327,7 @@ const SEEDS: Seed[] = [
   ['Colour story', 'Photograph three things of the same colour, arranged.', 'hard', 'anywhere', 'craft'],
   ['Look down', 'Photograph an interesting floor or ground pattern.', 'hard', 'outdoors', 'craft'],
   ['Look way up', 'Photograph a ceiling, sky, or canopy directly above you.', 'hard', 'outdoors', 'nature'],
-  ['Something moving', 'Photograph something in motion — traffic, people, or leaves.', 'hard', 'outdoors', 'movement'],
+  ['Something moving', 'Photograph something in motion: traffic, people, or leaves.', 'hard', 'outdoors', 'movement'],
   ['The horizon', 'Photograph the farthest point you can see.', 'hard', 'outdoors', 'nature'],
   ['Street art', 'Photograph a mural, sticker, or street art outside.', 'hard', 'outdoors', 'craft'],
   ['A friendly dog', 'Photograph a friendly dog outside (ask the owner first).', 'hard', 'outdoors', 'social'],
@@ -367,10 +382,169 @@ function buildSeeds(seeds: Seed[], reservedIds: string[]): Challenge[] {
   })
 }
 
+/**
+ * Templated generator that scales the pool into the hundreds while keeping each
+ * prompt readable and doable. The curated SEEDS above are the quality core;
+ * these add breadth (colours, objects, letters, counts, nature, compositions,
+ * movement, social) so the daily triad rarely repeats.
+ */
+function generateSeeds(): Seed[] {
+  const out: Seed[] = []
+  const push = (
+    title: string,
+    prompt: string,
+    d: Difficulty,
+    r: Room,
+    v: Vibe,
+  ) => out.push([title, prompt, d, r, v])
+  const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+
+  const colors = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'brown', 'black', 'white', 'grey', 'turquoise', 'teal', 'gold', 'silver', 'coral', 'mint', 'lavender', 'crimson', 'olive', 'amber', 'ivory', 'beige', 'navy']
+  for (const c of colors) push(`Something ${c}`, `Find something ${c} and photograph it.`, 'easy', 'anywhere', 'craft')
+
+  const objects = ['mug', 'book', 'pen', 'plant', 'cushion', 'chair', 'bag', 'cup', 'lamp', 'bottle']
+  for (const c of ['red', 'blue', 'green', 'yellow', 'white', 'black', 'pink', 'orange', 'grey', 'brown', 'purple', 'teal']) {
+    for (const o of objects) push(`${cap(c)} ${o}`, `Photograph a ${c} ${o}.`, 'easy', 'anywhere', 'craft')
+  }
+
+  const rooms: { room: Room; label: string }[] = [
+    { room: 'kitchen', label: 'kitchen' },
+    { room: 'lounge', label: 'lounge' },
+    { room: 'hallway', label: 'hallway' },
+    { room: 'window', label: 'window' },
+  ]
+  for (const c of ['red', 'blue', 'green', 'yellow', 'white', 'black', 'pink', 'orange', 'gold', 'silver']) {
+    for (const { room, label } of rooms) push(`${cap(c)} by the ${label}`, `Head to the ${label} and photograph something ${c}.`, 'easy', room, 'movement')
+  }
+
+  const adjectives = ['soft', 'shiny', 'rough', 'smooth', 'fuzzy', 'transparent', 'metallic', 'wooden', 'glassy', 'striped', 'spotted', 'curved', 'tiny', 'huge', 'worn', 'handmade', 'patterned', 'matte', 'fragile', 'sturdy', 'antique', 'modern', 'pointy', 'flat', 'furry', 'crinkled', 'polished', 'rusty']
+  for (const a of adjectives) push(`Something ${a}`, `Photograph something ${a}.`, 'easy', 'anywhere', 'craft')
+
+  const kitchenItems = ['mug', 'kettle', 'spoon', 'fork', 'bowl', 'plate', 'jar', 'glass', 'teapot', 'chopping board', 'sponge', 'tea towel', 'fruit bowl', 'clean dish', 'full cup', 'snack', 'fresh drink', 'toaster', 'knife block', 'colander']
+  for (const k of kitchenItems) push(`Kitchen: ${k}`, `Go to the kitchen and photograph a ${k}.`, 'easy', 'kitchen', 'craft')
+
+  const deskObjects = ['pen', 'notebook', 'a cable', 'a sticky note', 'a charger', 'headphones', 'a lamp', 'a mouse', 'a stapler', 'a pot of pens', 'a plant pot', 'a phone stand', 'a calendar', 'a book', 'a photo frame', 'a paperclip', 'scissors', 'a water bottle', 'a coaster', 'a keyboard']
+  for (const o of deskObjects) push(`Nearby: ${o}`, `Photograph ${o.startsWith('a ') || o.startsWith('an ') ? o : 'a ' + o}.`, 'easy', 'anywhere', 'craft')
+
+  const household = ['a cushion', 'a blanket', 'a clock', 'a picture frame', 'a candle', 'a vase', 'a rug', 'a curtain', 'a bookshelf', 'a houseplant', 'a mirror', 'a light switch', 'a radiator', 'a shelf', 'a stack of books', 'a doorway', 'a window latch', 'a power socket', 'a coaster', 'a remote']
+  for (const o of household) push(`Around you: ${o.replace(/^a /, '')}`, `Photograph ${o}.`, 'easy', 'lounge', 'tidy')
+
+  const shapes = ['round', 'square', 'triangular', 'spiral', 'striped', 'dotted', 'star-shaped', 'heart-shaped', 'rectangular', 'hexagonal', 'wavy', 'circular', 'oval', 'pointed']
+  for (const s of shapes) push(`Something ${s}`, `Photograph something ${s}.`, 'easy', 'anywhere', 'craft')
+
+  const textures = ['soft', 'rough', 'shiny', 'smooth', 'fuzzy', 'metallic', 'wooden', 'glassy', 'woven', 'knitted', 'grainy', 'bumpy', 'silky', 'cracked']
+  for (const t of textures) push(`A ${t} surface`, `Photograph a ${t} surface up close.`, 'easy', 'anywhere', 'craft')
+
+  const drinks = ['a glass of water', 'a cup of tea', 'a coffee', 'a herbal tea', 'a piece of fruit', 'a healthy snack', 'a smoothie', 'a glass of juice', 'a bowl of nuts', 'a full water bottle', 'a warm drink', 'an iced drink', 'a cup you just washed', 'the kettle boiling', 'a fresh brew']
+  for (const dr of drinks) push(`Fuel: ${dr.replace(/^(a|an|the) /, '')}`, `Make or get ${dr} and photograph it.`, 'easy', 'kitchen', 'hydrate')
+
+  const light = ['morning light', 'a long shadow', 'a bright reflection', 'soft light', 'a sunbeam', 'light through a window', 'a dark corner', 'a glowing lamp', 'a backlit object', 'dappled light']
+  for (const l of light) push(cap(l), `Photograph ${l}.`, 'easy', 'window', 'nature')
+
+  const remindThemes = ['home', 'summer', 'calm', 'energy', 'focus', 'a good memory', 'the weekend', 'nature', 'warmth', 'your morning']
+  for (const th of remindThemes) push(`Reminds you of ${th}`, `Photograph something that reminds you of ${th}.`, 'easy', 'anywhere', 'craft')
+
+  const favourites = ['mug', 'pen', 'plant', 'book', 'snack', 'corner of the room', 'view', 'tool', 'photo on your desk', 'piece of tech']
+  for (const f of favourites) push(`Favourite ${f.split(' ')[0]}`, `Photograph your favourite ${f}.`, 'easy', 'anywhere', 'craft')
+
+  // --- Medium -------------------------------------------------------------
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
+  for (const L of letters) push(`Find the letter ${L}`, `Find the letter ${L} somewhere around you and photograph it.`, 'medium', 'anywhere', 'craft')
+  for (const L of letters) push(`A word with ${L}`, `Photograph a word or sign that starts with ${L}.`, 'medium', 'hallway', 'movement')
+
+  const countThings = ['books', 'cups', 'chairs', 'pens', 'windows', 'plants', 'shoes', 'frames']
+  for (const n of [2, 3, 4, 5, 6]) {
+    for (const th of countThings) push(`Exactly ${n} ${th}`, `Photograph exactly ${n} ${th} together.`, 'medium', 'anywhere', 'craft')
+  }
+
+  const superlatives = ['oldest', 'newest', 'tallest', 'smallest', 'brightest', 'darkest', 'softest', 'most colourful', 'most useful', 'most beautiful', 'most worn', 'roundest', 'shiniest', 'most comfortable', 'tidiest', 'most personal', 'most surprising', 'most fragile', 'busiest', 'emptiest']
+  for (const s of superlatives) push(`The ${s} thing`, `Photograph the ${s} thing you can see right now.`, 'medium', 'anywhere', 'craft')
+
+  const places = ['the top of the stairs', 'the bottom of the stairs', 'the far end of a corridor', 'a different floor', 'the reception', 'the kitchen area', 'the fire exit', 'a meeting room', 'the lift lobby', 'the entrance', 'the quietest corner', 'the busiest area', 'the far side of your floor', 'a room you rarely enter', 'the longest wall', 'a stairwell', 'a corner you like', 'the coldest spot', 'the warmest spot', 'a doorway you never use']
+  for (const p of places) push(cap(p), `Walk to ${p} and photograph it.`, 'medium', 'hallway', 'movement')
+
+  const arrangeBy = ['colour', 'size', 'height', 'shape']
+  for (const n of [3, 4, 5]) {
+    for (const by of arrangeBy) push(`Arrange ${n} by ${by}`, `Arrange ${n} objects by ${by} and photograph them.`, 'medium', 'lounge', 'craft')
+  }
+
+  // --- Hard ---------------------------------------------------------------
+  const outdoorThings = ['a parked car', 'a bicycle', 'a street sign', 'a front door', 'a mailbox', 'a bench', 'a lamppost', 'a manhole cover', 'a bus stop', 'a shop window', 'a fence', 'a gate', 'a brick wall', 'a crossing', 'a rooftop', 'a chimney', 'a balcony', 'a garden', 'a tree canopy', 'a house number', 'a flower bed', 'a hedge', 'a path', 'steps outside', 'a drainpipe', 'a window box', 'a wall mural', 'a cafe sign', 'a bin outside', 'a bollard', 'a puddle', 'a parked scooter', 'a road marking', 'a tree trunk', 'a signpost']
+  for (const o of outdoorThings) push(`Outside: ${o.replace(/^a /, '')}`, `Head outside and photograph ${o}.`, 'hard', 'outdoors', 'fresh-air')
+
+  const outdoorColors = ['red', 'blue', 'green', 'yellow', 'white', 'orange', 'pink', 'grey', 'brown', 'black', 'gold', 'silver']
+  for (const c of outdoorColors) push(`Outdoors, something ${c}`, `Go outside and photograph something ${c}.`, 'hard', 'outdoors', 'fresh-air')
+
+  const compositions = ['a reflection', 'a strong shadow', 'leading lines', 'a frame within a frame', 'negative space', 'perfect symmetry', 'a repeating pattern', 'a macro close-up', 'a silhouette', 'a pop of colour', 'a top-down flat lay', 'a low-angle shot', 'golden light', 'a minimal composition', 'a burst of texture', 'a diagonal line', 'a graceful curve', 'a vanishing point', 'a colour contrast', 'a tiny detail', 'a big empty space', 'a busy scene', 'a backlit subject', 'a mirror image']
+  for (const c of compositions) push(cap(c.replace(/^(a|an) /, '')), `Compose and photograph ${c}.`, 'hard', 'anywhere', 'craft')
+
+  const socialMoments = ['a colleague waving', 'two people chatting', 'a shared coffee', 'someone laughing', 'a team huddle', 'a friendly handshake', 'a high five', 'a thumbs up', 'a group of three', 'a shared snack', 'a handover of something', 'a whiteboard someone drew on', 'a shared workspace', 'two mugs together', 'a hallway hello', 'a fist bump', 'someone at their desk', 'a colleague’s plant', 'a shared lunch', 'a wave across the room']
+  for (const s of socialMoments) push(cap(s.replace(/^(a|an) /, '')), `Photograph ${s} (ask first if someone's in it).`, 'hard', 'anywhere', 'social')
+
+  const selfieDoing = ['stretching', 'by a window', 'with a plant', 'holding your drink', 'on the stairs', 'outside', 'giving a thumbs up', 'mid-walk', 'with a colleague', 'smiling in fresh air']
+  for (const s of selfieDoing) push(`Selfie: ${s}`, `Take a selfie ${s}.`, 'hard', 'anywhere', 'social')
+
+  const explore = ['the best view you can reach', 'the highest point you can get to', 'the greenest spot nearby', 'the farthest you can walk in two minutes', 'a place you have never photographed', 'the oldest thing outdoors', 'somewhere with fresh air', 'the widest sky you can find', 'a long outdoor path', 'a quiet spot outside']
+  for (const e of explore) push(cap(e), `Get up, find ${e}, and photograph it.`, 'hard', 'outdoors', 'fresh-air')
+
+  // --- More breadth, weighted to medium/hard ------------------------------
+  const natureFinds = ['a cloud', 'a tree', 'a leaf', 'a flower', 'some grass', 'a bird', 'a puddle', 'moss', 'a stone', 'bark', 'a branch', 'a shadow of a plant', 'a hill', 'a rock', 'soil', 'a weed', 'running water', 'a spider web', 'a pinecone', 'a petal', 'dew', 'a bush', 'ivy', 'a fallen leaf', 'a patch of green', 'a tree root', 'a berry', 'a feather', 'a seed head', 'lichen']
+  for (const n of natureFinds) push(`Nature: ${n.replace(/^(a|an|some) /, '')}`, `Get outside and photograph ${n}.`, 'hard', 'outdoors', 'nature')
+
+  const outAdj = ['colourful', 'weathered', 'symmetrical', 'reflective', 'tall', 'round', 'painted', 'rusty', 'green', 'old', 'new', 'striped', 'curved', 'patterned', 'bright', 'shaded', 'shiny', 'natural', 'man-made', 'quiet']
+  for (const a of outAdj) push(`Outdoors, ${a}`, `Outside, photograph something ${a}.`, 'hard', 'outdoors', 'fresh-air')
+
+  const outShapes = ['round', 'square', 'triangular', 'curved', 'tall', 'wide', 'striped', 'spotted', 'symmetrical', 'angular', 'spiral', 'flat']
+  for (const s of outShapes) push(`Outdoor ${s} shape`, `Outside, photograph something ${s}.`, 'hard', 'outdoors', 'craft')
+
+  const outSuper = ['tallest', 'oldest', 'greenest', 'brightest', 'busiest', 'quietest', 'most colourful', 'most beautiful', 'nearest', 'farthest', 'widest', 'smallest']
+  for (const s of outSuper) push(`Outdoor: the ${s}`, `Outside, photograph the ${s} thing you can see.`, 'hard', 'outdoors', 'fresh-air')
+
+  const moreCountThings = ['doors', 'lights', 'plants', 'mugs', 'stairs', 'signs', 'windows', 'chairs']
+  for (const n of [7, 8]) {
+    for (const th of moreCountThings) push(`Spot ${n} ${th}`, `Photograph exactly ${n} ${th} in one shot.`, 'medium', 'anywhere', 'movement')
+  }
+
+  const placesAgain = ['the kitchen', 'a stairwell', 'the entrance', 'a meeting room', 'the far corridor', 'the reception', 'another floor', 'the lift lobby', 'a quiet room', 'the noticeboard', 'a shared table', 'the water point', 'the coldest room', 'the sunniest room', 'a corner you like', 'the longest wall', 'the tallest window', 'a door you never use', 'the recycling point', 'the far side']
+  for (const p of placesAgain) push(`Something at ${p}`, `Walk to ${p} and photograph something interesting there.`, 'medium', 'hallway', 'movement')
+
+  const windowViews = ['north', 'south', 'a high floor', 'the ground floor', 'the street side', 'the quiet side', 'the meeting room', 'the kitchen', 'the stairwell', 'the entrance', 'the sunny side', 'the shady side']
+  for (const w of windowViews) push(`View: ${w}`, `Find a window facing ${w} and photograph the view.`, 'medium', 'window', 'nature')
+
+  const signWords = ['EXIT', 'OPEN', 'PUSH', 'PULL', 'STOP', 'STAFF', 'WELCOME', 'QUIET', 'DANGER', 'THANK YOU', 'HELLO', 'INFO', 'CAFE', 'LIFT', 'WAY OUT']
+  for (const w of signWords) push(`Sign: ${w}`, `Find a sign or label that says "${w}" and photograph it.`, 'medium', 'hallway', 'movement')
+
+  const stepCounts = [20, 30, 40, 50, 100]
+  for (const n of stepCounts) push(`Walk ${n} steps`, `Walk ${n} steps from your seat and photograph where you land.`, 'medium', 'hallway', 'movement')
+
+  const teamPrompts = ['the team’s shared plant', 'a colleague’s desk you admire (ask first)', 'the busiest desk right now', 'a shared celebration', 'a whiteboard with ideas on it', 'the coffee spot everyone uses', 'a group of colleagues (ask first)', 'someone helping someone else', 'a shared meal or snack', 'the tidiest desk you can find', 'a friendly face (ask first)', 'a team gathering spot', 'two colleagues collaborating', 'a shared calendar or board', 'the office pet or mascot']
+  for (const t of teamPrompts) push(cap(t.replace(/^(a|an|the) /, '')), `Photograph ${t}.`, 'hard', 'anywhere', 'social')
+
+  const pairProps = ['colour', 'shape', 'size', 'material', 'texture', 'brand', 'purpose', 'age', 'pattern', 'height']
+  for (const p of pairProps) push(`Two things: same ${p}`, `Photograph two things that share the same ${p}.`, 'medium', 'anywhere', 'craft')
+
+  const season = ['today’s weather', 'a sign of the season', 'something wet', 'something dry', 'something warm', 'something cold', 'the light right now', 'a change since yesterday']
+  for (const s of season) push(cap(s.replace(/^(a|an|the) /, '')), `Outside or by a window, photograph ${s}.`, 'hard', 'outdoors', 'fresh-air')
+
+  for (const digit of '0123456789'.split('')) push(`Find the number ${digit}`, `Find the number ${digit} somewhere around you and photograph it.`, 'medium', 'anywhere', 'craft')
+
+  const outTextures = ['brick', 'stone', 'wood', 'metal', 'glass', 'concrete', 'painted', 'mossy', 'leafy', 'watery', 'gravel', 'tarmac', 'rusty']
+  for (const t of outTextures) push(`Outdoor ${t} texture`, `Outside, photograph a ${t} surface up close.`, 'hard', 'outdoors', 'craft')
+
+  return out
+}
+
+const GENERATED = generateSeeds()
+
 export const CHALLENGES: Challenge[] = [
   ...CURATED,
-  ...buildSeeds(SEEDS, CURATED.map((c) => c.id)),
+  FREE_CHALLENGE,
+  ...buildSeeds([...SEEDS, ...GENERATED], [...CURATED.map((c) => c.id), FREE_CHALLENGE.id]),
 ]
+
+export function getFreeChallenge(): Challenge {
+  return FREE_CHALLENGE
+}
 
 const DIFFICULTY_ORDER: Difficulty[] = ['easy', 'medium', 'hard']
 
@@ -410,7 +584,11 @@ export function drawTriad(
 
   for (const difficulty of DIFFICULTY_ORDER) {
     const tier = CHALLENGES.filter(
-      (c) => c.active && c.difficulty === difficulty && !excluded.has(c.id),
+      (c) =>
+        c.active &&
+        c.id !== FREE_CHALLENGE.id &&
+        c.difficulty === difficulty &&
+        !excluded.has(c.id),
     )
     const chosen = pickOne(tier, random)
     if (chosen) result.push(chosen)
@@ -422,5 +600,7 @@ export function drawTriad(
 /** How many challenges the user still has left across all tiers. */
 export function remainingCount(excludeIds: Iterable<string>): number {
   const excluded = new Set(excludeIds)
-  return CHALLENGES.filter((c) => c.active && !excluded.has(c.id)).length
+  return CHALLENGES.filter(
+    (c) => c.active && c.id !== FREE_CHALLENGE.id && !excluded.has(c.id),
+  ).length
 }

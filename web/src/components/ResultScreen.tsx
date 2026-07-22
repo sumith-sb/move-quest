@@ -41,7 +41,7 @@ export function ResultScreen({
           <>
             <p className="result-points">+{result.pointsAwarded} pts</p>
             <p className="muted">
-              Your shot is live in the team feed — go see who reacts.
+              Your shot is live in the team feed. Go see who reacts.
             </p>
             {cooldownMs > 0 ? (
               <p className="cooldown-inline">
