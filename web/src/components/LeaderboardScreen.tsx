@@ -159,7 +159,11 @@ export function LeaderboardScreen({ userId, onOpenMenu }: Props) {
           {ghostCount > 0 ? (
             <div className="board-ghosts" aria-hidden="true">
               {Array.from({ length: ghostCount }).map((_, i) => (
-                <div key={i} className="board-ghost" />
+                <div
+                  key={i}
+                  className="board-ghost"
+                  style={{ opacity: Math.max(0.06, 0.42 * 0.66 ** i) }}
+                />
               ))}
             </div>
           ) : null}

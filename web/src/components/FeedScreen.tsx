@@ -1,4 +1,4 @@
-import { MoreHorizontal, Plus, Send, X } from 'lucide-react'
+import { MoreHorizontal, Send, SmilePlus, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { commentOnPost, deletePost, fetchFeed, reactToPost } from '../api'
@@ -272,7 +272,7 @@ function PostCard({
                   aria-expanded={pickerOpen}
                   onClick={() => setPickerOpen((v) => !v)}
                 >
-                  <Plus size={16} strokeWidth={2.5} />
+                  <SmilePlus size={18} strokeWidth={2} />
                 </button>
                 {pickerOpen ? (
                   <EmojiPicker onPick={(e) => void react(e)} onClose={() => setPickerOpen(false)} />
@@ -282,39 +282,41 @@ function PostCard({
           </div>
         ) : null}
 
-        {comments.length > 0 ? (
-          <ul className="comment-list">
-            {comments.map((c) => (
-              <li key={c.id}>
-                <Avatar name={c.displayName} avatarUrl={c.avatarUrl} size={26} />
-                <span className="comment-text">
-                  <span className="comment-author">{c.displayName}</span>
-                  <span className="comment-body">{c.body}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : null}
+        <div className="feed-comments">
+          {comments.length > 0 ? (
+            <ul className="comment-list">
+              {comments.map((c) => (
+                <li key={c.id}>
+                  <Avatar name={c.displayName} avatarUrl={c.avatarUrl} size={26} />
+                  <span className="comment-text">
+                    <span className="comment-author">{c.displayName}</span>
+                    <span className="comment-body">{c.body}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
 
-        <form className="comment-form" onSubmit={submitComment}>
-          <input
-            type="text"
-            maxLength={280}
-            placeholder="Add a comment…"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            disabled={busy}
-            aria-label={`Comment on ${post.displayName}'s move`}
-          />
-          <button
-            type="submit"
-            className="ghost-btn icon-btn comment-send"
-            disabled={busy || draft.trim().length < 1}
-            aria-label="Post comment"
-          >
-            <Send size={16} strokeWidth={2} />
-          </button>
-        </form>
+          <form className="comment-form" onSubmit={submitComment}>
+            <input
+              type="text"
+              maxLength={280}
+              placeholder="Add a comment…"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              disabled={busy}
+              aria-label={`Comment on ${post.displayName}'s move`}
+            />
+            <button
+              type="submit"
+              className="ghost-btn icon-btn comment-send"
+              disabled={busy || draft.trim().length < 1}
+              aria-label="Post comment"
+            >
+              <Send size={16} strokeWidth={2} />
+            </button>
+          </form>
+        </div>
       </div>
     </article>
   )
