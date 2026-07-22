@@ -1,6 +1,5 @@
 import { Plus, Shuffle, Upload } from 'lucide-react'
 import { formatDuration, useCountdown } from '../countdown'
-import { DIFFICULTY_LABEL } from '../labels'
 import type { Challenge } from '../types'
 import { MenuButton } from './NavMenu'
 import { RoomChip } from './RoomChip'
@@ -83,16 +82,10 @@ export function ChallengePicker({
               <li key={challenge.id} style={{ animationDelay: `${index * 60}ms` }}>
                 <button
                   type="button"
-                  className={`challenge-card difficulty-${challenge.difficulty}`}
+                  className="challenge-card"
                   disabled={busyId !== null}
                   onClick={() => onPick(challenge)}
                 >
-                  <div className="card-meta">
-                    <span className="diff-pill">
-                      {DIFFICULTY_LABEL[challenge.difficulty]}
-                    </span>
-                    <span className="points-stamp">+{challenge.points}</span>
-                  </div>
                   <h2>{challenge.title}</h2>
                   <p>{challenge.prompt}</p>
                   <div className="card-foot">
@@ -133,7 +126,7 @@ export function ChallengePicker({
                   Share anything <Plus size={14} strokeWidth={2.5} />
                 </span>
                 <span className="free-sub">
-                  Upload any photo and add a caption ({freeChallenge.points} pts)
+                  Upload any photo and add a caption
                 </span>
               </span>
             </button>

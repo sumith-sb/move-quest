@@ -65,7 +65,7 @@ const CURATED: Challenge[] = [
     difficulty: 'medium',
     room: 'hallway',
     vibe: 'movement',
-    points: 25,
+    points: 20,
     criteria: [{ id: 'stairs_visible', description: 'A staircase with multiple steps is visible' }],
     active: true,
   },
@@ -77,7 +77,7 @@ const CURATED: Challenge[] = [
     difficulty: 'medium',
     room: 'lounge',
     vibe: 'tidy',
-    points: 25,
+    points: 20,
     criteria: [{ id: 'surface_visible', description: 'A tidied surface is clearly visible' }],
     active: true,
   },
@@ -89,7 +89,7 @@ const CURATED: Challenge[] = [
     difficulty: 'medium',
     room: 'kitchen',
     vibe: 'craft',
-    points: 25,
+    points: 20,
     criteria: [{ id: 'made_visible', description: 'Freshly prepared food or drink is visible' }],
     active: true,
   },
@@ -101,7 +101,7 @@ const CURATED: Challenge[] = [
     difficulty: 'hard',
     room: 'outdoors',
     vibe: 'fresh-air',
-    points: 50,
+    points: 30,
     criteria: [{ id: 'outdoors', description: 'The photo appears to be taken outdoors' }],
     active: true,
   },
@@ -113,7 +113,7 @@ const CURATED: Challenge[] = [
     difficulty: 'hard',
     room: 'anywhere',
     vibe: 'social',
-    points: 50,
+    points: 30,
     criteria: [{ id: 'person_visible', description: 'A person waving or two people are visible' }],
     active: true,
   },
@@ -125,7 +125,7 @@ const CURATED: Challenge[] = [
     difficulty: 'hard',
     room: 'anywhere',
     vibe: 'craft',
-    points: 50,
+    points: 30,
     criteria: [{ id: 'reflection_visible', description: 'A reflection in a reflective surface is visible' }],
     active: true,
   },
@@ -141,7 +141,7 @@ export const FREE_CHALLENGE: Challenge = {
   difficulty: 'easy',
   room: 'anywhere',
   vibe: 'social',
-  points: 5,
+  points: 10,
   criteria: [{ id: 'photo', description: 'A photo is attached' }],
   active: true,
 }
@@ -349,7 +349,7 @@ const SEEDS: Seed[] = [
   ['The oldest thing outside', 'Photograph the oldest-looking thing you can find outdoors.', 'hard', 'outdoors', 'craft'],
 ]
 
-const POINTS: Record<Difficulty, number> = { easy: 10, medium: 25, hard: 50 }
+const POINTS: Record<Difficulty, number> = { easy: 10, medium: 20, hard: 30 }
 
 function slugify(input: string): string {
   return input

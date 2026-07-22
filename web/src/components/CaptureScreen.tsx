@@ -1,6 +1,5 @@
 import { ArrowLeft, Camera, ImagePlus } from 'lucide-react'
 import { useId, useRef, useState } from 'react'
-import { DIFFICULTY_LABEL } from '../labels'
 import type { Challenge } from '../types'
 import { RoomChip } from './RoomChip'
 
@@ -50,11 +49,10 @@ export function CaptureScreen({ challenge, busy, error, onBack, onSubmit }: Prop
           <ArrowLeft size={18} strokeWidth={2} />
           Back
         </button>
-        {!isFree ? <span className="points-stamp compact">+{challenge.points}</span> : null}
       </header>
 
       <div className="capture-copy">
-        <p className="eyebrow">{isFree ? 'Free post' : `${DIFFICULTY_LABEL[challenge.difficulty]} move`}</p>
+        <p className="eyebrow">{isFree ? 'Free post' : 'Your move'}</p>
         <h1 id="capture-title">{challenge.title}</h1>
         <p>{challenge.prompt}</p>
         {!isFree ? <RoomChip room={challenge.room} /> : null}

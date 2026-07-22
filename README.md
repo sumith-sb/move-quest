@@ -13,14 +13,16 @@ modules on bleeding-edge Node.)
 
 ## Core loop
 
-1. Pick one of three (Easy / Medium / Hard) from a pool of **1,000** curated
-   and generated moves. The difficulty is an effort ladder: quick / another
-   room / step outside. Reshuffle for a new three anytime, or use the **free
-   post** to upload any photo with a caption.
+1. Pick one of three moves from a pool of **1,000** curated and generated ones.
+   The three are secretly an effort ladder (quick / another room / step
+   outside), but difficulty and points are **hidden** so people pick what suits
+   them, not what scores most. Reshuffle anytime, or use the **free post** to
+   upload any photo with a caption.
 2. Take a **live photo** (camera only for challenges; free posts allow an
-   upload), add a caption, and choose whether to share to the feed.
-3. It's accepted and **posted to the feed**; points are awarded
-   (10 / 25 / 50 by difficulty, 5 for a free post).
+   upload), add a caption, and choose whether to share to the feed (free posts
+   always post).
+3. It's accepted and **posted to the feed**; points are awarded and revealed as
+   the reward (10 / 20 / 30 by difficulty, 10 for a free post).
 4. A cooldown (`COOLDOWN_MINUTES`, default 30) locks new moves until it passes.
    Opt into a **bell reminder** in Settings to get pinged the moment it ends.
 5. The team reacts with **any emoji** (Slack-style, but not on your own posts)

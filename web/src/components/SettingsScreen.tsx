@@ -1,10 +1,30 @@
-import { Bell, CalendarClock, Footprints, Heart, Volume2 } from 'lucide-react'
+import {
+  Bell,
+  CalendarClock,
+  Footprints,
+  Heart,
+  type LucideIcon,
+  Monitor,
+  Moon,
+  Sun,
+  Volume2,
+} from 'lucide-react'
 import { playChime } from '../chime'
-import { ensureNotificationPermission, type Settings } from '../settings'
+import {
+  ensureNotificationPermission,
+  type Settings,
+  type ThemeChoice,
+} from '../settings'
 import type { User } from '../types'
 import { Avatar } from './Avatar'
 import { MenuButton } from './NavMenu'
 import { Toggle } from './Toggle'
+
+const THEMES: { value: ThemeChoice; label: string; icon: LucideIcon }[] = [
+  { value: 'light', label: 'Light', icon: Sun },
+  { value: 'dark', label: 'Dark', icon: Moon },
+  { value: 'system', label: 'System', icon: Monitor },
+]
 
 interface Props {
   user: User
@@ -39,6 +59,31 @@ export function SettingsScreen({ user, settings, onChange, onOpenMenu }: Props) 
               ? 'Photo from your Google account'
               : 'Sign in with Google to use your photo'}
           </p>
+        </div>
+      </div>
+
+      <div className="settings-group">
+        <div className="settings-group-head">
+          <Sun size={16} strokeWidth={2} aria-hidden="true" />
+          <p className="settings-group-title">Appearance</p>
+        </div>
+        <div className="theme-seg" role="group" aria-label="Theme">
+          {THEMES.map((t) => {
+            const Icon = t.icon
+            const active = settings.theme === t.value
+            return (
+              <button
+                key={t.value}
+                type="button"
+                className={`theme-opt ${active ? 'active' : ''}`}
+                aria-pressed={active}
+                onClick={() => onChange({ ...settings, theme: t.value })}
+              >
+                <Icon size={18} strokeWidth={2} aria-hidden="true" />
+                {t.label}
+              </button>
+            )
+          })}
         </div>
       </div>
 
@@ -86,7 +131,7 @@ export function SettingsScreen({ user, settings, onChange, onOpenMenu }: Props) 
         <ul className="fact-list">
           <li>
             <span className="fact-icon"><Footprints size={16} strokeWidth={2} /></span>
-            Easy, Medium and Hard moves earn 10, 25 and 50 points.
+            Completing a move earns points. A bigger effort earns a bit more.
           </li>
           <li>
             <span className="fact-icon"><Heart size={16} strokeWidth={2} /></span>

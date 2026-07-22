@@ -19,6 +19,7 @@ import { Onboarding } from './components/Onboarding'
 import { ResultScreen } from './components/ResultScreen'
 import { SettingsScreen } from './components/SettingsScreen'
 import {
+  applyTheme,
   loadSettings,
   notify,
   saveSettings,
@@ -93,6 +94,16 @@ export default function App() {
     }, ms)
     return () => window.clearTimeout(id)
   }, [settings.reminderEnabled, settings.soundEnabled, cooldownUntil])
+
+  // Apply the theme, and follow the OS while on "system".
+  useEffect(() => {
+    applyTheme(settings.theme)
+    if (settings.theme !== 'system') return
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const handler = () => applyTheme('system')
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [settings.theme])
 
   function updateSettings(next: Settings) {
     setSettings(next)

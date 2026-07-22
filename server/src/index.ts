@@ -585,7 +585,8 @@ export function createApp() {
 
         attempt.status = 'processing'
         attempt.caption = caption
-        attempt.sharedToFeed = sharedToFeed
+        // Free posts always go to the feed so they stay socially verifiable.
+        attempt.sharedToFeed = attempt.challengeId === FREE_CHALLENGE.id ? true : sharedToFeed
         attempt.photoPath = relPath
         attempt.photoSha256 = sha256
         attempt.updatedAt = nowIso()

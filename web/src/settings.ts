@@ -1,13 +1,30 @@
+export type ThemeChoice = 'system' | 'light' | 'dark'
+
 export interface Settings {
   /** Ring when the movement cooldown ends. */
   reminderEnabled: boolean
   /** Play the bell sound with the reminder. */
   soundEnabled: boolean
+  /** Colour theme; 'system' follows the OS preference. */
+  theme: ThemeChoice
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   reminderEnabled: false,
   soundEnabled: true,
+  theme: 'system',
+}
+
+export function resolveTheme(choice: ThemeChoice): 'light' | 'dark' {
+  if (choice === 'system') {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  }
+  return choice
+}
+
+/** Stamp the resolved theme onto the document root for the CSS to read. */
+export function applyTheme(choice: ThemeChoice): void {
+  document.documentElement.setAttribute('data-theme', resolveTheme(choice))
 }
 
 const KEY = 'move-quest-settings'
