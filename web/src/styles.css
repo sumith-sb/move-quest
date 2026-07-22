@@ -67,6 +67,7 @@
 
   --line: rgba(54, 73, 60, 0.12);
   --line-strong: rgba(54, 73, 60, 0.24);
+  --skeleton-shine: rgba(255, 255, 255, 0.55);
 
   /* Green-tinted shadows — never black */
   --shadow-sm: 0 2px 6px rgba(36, 47, 40, 0.06);
@@ -110,6 +111,7 @@
 
   --line: rgba(244, 239, 232, 0.14);
   --line-strong: rgba(244, 239, 232, 0.26);
+  --skeleton-shine: rgba(255, 255, 255, 0.06);
 
   --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.35);
   --shadow-md: 0 10px 32px -8px rgba(0, 0, 0, 0.5);
@@ -723,7 +725,7 @@ h2 {
 
 .board-list li.is-me {
   border-color: transparent;
-  box-shadow: inset 0 0 0 2px var(--gs-green);
+  box-shadow: inset 0 0 0 1.5px rgba(54, 73, 60, 0.38);
 }
 
 .rank {
@@ -968,7 +970,7 @@ h2 {
 
 .feed-card.is-mine {
   border-color: transparent;
-  box-shadow: inset 0 0 0 2px var(--gs-green);
+  box-shadow: inset 0 0 0 1.5px rgba(54, 73, 60, 0.38);
 }
 
 .feed-head {
@@ -1713,7 +1715,7 @@ h2 {
   background: linear-gradient(150deg, #d29868, #a96b3f);
 }
 .podium-slot.is-me {
-  outline: 2px solid var(--gs-green);
+  outline: 1.5px solid rgba(54, 73, 60, 0.38);
   outline-offset: 0;
 }
 
@@ -2102,11 +2104,11 @@ h2 {
 
 [data-theme='dark'] .board-list li.is-me,
 [data-theme='dark'] .feed-card.is-mine {
-  box-shadow: inset 0 0 0 2px var(--accent);
+  box-shadow: inset 0 0 0 1.5px rgba(215, 255, 54, 0.42);
 }
 
 [data-theme='dark'] .podium-slot.is-me {
-  outline-color: var(--accent);
+  outline-color: rgba(215, 255, 54, 0.42);
 }
 
 [data-theme='dark'] .board-list li.is-me .rank {
@@ -2139,6 +2141,181 @@ h2 {
 [data-theme='dark'] .oa-badge {
   color: var(--gs-green-900);
   background: rgba(215, 255, 54, 0.5);
+}
+
+/* --- Goodspeed logo ------------------------------------------------------- */
+.gs-logo {
+  display: block;
+  color: var(--fg);
+  opacity: 0.9;
+}
+
+/* --- Feed task line + delete ---------------------------------------------- */
+.feed-task {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.feed-task-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: rgba(54, 73, 60, 0.06);
+  color: var(--gs-green);
+}
+
+.feed-task-text {
+  display: grid;
+  gap: 0.05rem;
+  min-inline-size: 0;
+}
+
+.feed-task-label {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 0.68rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+}
+
+.feed-task-title {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 1.05rem;
+  color: var(--fg);
+}
+
+.feed-delete {
+  align-self: flex-start;
+  background: transparent;
+  border: none;
+  padding: 0.3rem 0;
+  color: var(--fg-subtle);
+  font-size: 0.85rem;
+  font-family: var(--font-body);
+}
+
+.feed-delete:active {
+  transform: scale(0.97);
+}
+
+.feed-delete-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--radius-md);
+  background: rgba(234, 158, 131, 0.14);
+  border: 1px solid rgba(234, 158, 131, 0.4);
+  font-size: 0.88rem;
+  color: var(--fg);
+}
+
+.feed-delete-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.danger-btn {
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--gs-peach);
+  color: #4a1f10;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 0.85rem;
+  padding: 0.45rem 1rem;
+  min-height: 40px;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.danger-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.share-toggle.is-locked {
+  opacity: 0.8;
+  cursor: default;
+}
+
+/* --- Skeletons ------------------------------------------------------------ */
+.skeleton {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-sunken);
+  border-radius: var(--radius-sm);
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, var(--skeleton-shine), transparent);
+  animation: shimmer 1.4s var(--ease-in-out) infinite;
+}
+
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton-card {
+  pointer-events: none;
+}
+
+.board-list-skeleton {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.85rem;
+  align-items: center;
+  padding: 0.9rem 1.1rem;
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+}
+
+/* --- Leaderboard subhead + sparse podium ---------------------------------- */
+.board-subhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.board-subhead .lede {
+  flex: 1;
+  min-inline-size: 60%;
+}
+
+.podium-slot.is-skeleton {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.podium-open {
+  flex: 1;
+  font-family: var(--font-display);
+  font-weight: 500;
+  color: var(--fg-subtle);
+}
+
+/* --- Dark-theme additions ------------------------------------------------- */
+[data-theme='dark'] .feed-task-icon {
+  background: rgba(244, 239, 232, 0.09);
+  color: var(--accent);
 }
 
 /* --- Utility -------------------------------------------------------------- */

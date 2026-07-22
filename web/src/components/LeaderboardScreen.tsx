@@ -2,22 +2,19 @@ import { Clock } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { fetchLeaderboard, subscribeLeaderboard } from '../api'
 import type { LeaderboardEntry } from '../types'
+import { Logo } from './Logo'
 import { MenuButton } from './NavMenu'
+import { Skeleton, SkeletonBoardRow } from './Skeleton'
 
 interface Props {
   userId: string
   onOpenMenu: () => void
 }
 
-/** ms until the next Monday 00:00 UTC (the weekly reset boundary). */
 function msUntilReset(now = Date.now()): number {
   const d = new Date(now)
   const daysUntilMonday = ((8 - d.getUTCDay()) % 7) || 7
-  const next = Date.UTC(
-    d.getUTCFullYear(),
-    d.getUTCMonth(),
-    d.getUTCDate() + daysUntilMonday,
-  )
+  const next = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + daysUntilMonday)
   return next - now
 }
 
@@ -35,6 +32,7 @@ const MEDAL = ['rank-gold', 'rank-silver', 'rank-bronze']
 
 export function LeaderboardScreen({ userId, onOpenMenu }: Props) {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([])
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [resetMs, setResetMs] = useState(() => msUntilReset())
 
@@ -52,11 +50,15 @@ export function LeaderboardScreen({ userId, onOpenMenu }: Props) {
       .catch((err: Error) => {
         if (!cancelled) setError(err.message)
       })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
 
     const unsubscribe = subscribeLeaderboard(
       (data) => {
         if (!cancelled) {
           setEntries(data)
+          setLoading(false)
           setError(null)
         }
       },
@@ -68,20 +70,24 @@ export function LeaderboardScreen({ userId, onOpenMenu }: Props) {
     }
   }, [])
 
-  const [top, rest] = [entries.slice(0, 3), entries.slice(3)]
+  const podium = [0, 1, 2].map((i) => entries[i] ?? null)
+  const rest = entries.slice(3)
 
   return (
     <section className="screen board-screen" aria-labelledby="board-title">
       <header className="topbar">
         <MenuButton onClick={onOpenMenu} />
+        <Logo height={16} />
+      </header>
+
+      <h1 id="board-title">This Week</h1>
+      <div className="board-subhead">
+        <p className="lede">Points reset every Monday. Reactions on your posts count too.</p>
         <span className="reset-chip">
           <Clock size={14} strokeWidth={2} aria-hidden="true" />
           Resets in {formatReset(resetMs)}
         </span>
-      </header>
-
-      <h1 id="board-title">This Week</h1>
-      <p className="lede">Points reset every Monday. Reactions on your posts count too.</p>
+      </div>
 
       {error ? (
         <p className="banner error" role="alert">
@@ -89,31 +95,49 @@ export function LeaderboardScreen({ userId, onOpenMenu }: Props) {
         </p>
       ) : null}
 
-      {entries.length === 0 ? (
-        <div className="empty-state">
-          <h2>No scores yet</h2>
-          <p>Be first on the board, go snap a challenge.</p>
-        </div>
+      {loading ? (
+        <>
+          <ol className="podium">
+            {[0, 1, 2].map((i) => (
+              <li key={i} className={`podium-slot ${MEDAL[i]} is-skeleton`}>
+                <Skeleton circle width={40} height={40} className="podium-rank-skeleton" />
+                <Skeleton width="55%" height={13} />
+                <Skeleton width={40} height={22} radius={8} />
+                <Skeleton width="35%" height={10} style={{ marginTop: 6 }} />
+              </li>
+            ))}
+          </ol>
+          <div className="board-list">
+            <SkeletonBoardRow />
+            <SkeletonBoardRow />
+          </div>
+        </>
       ) : (
         <>
-          {top.length > 0 ? (
-            <ol className="podium">
-              {top.map((entry, i) => {
-                const mine = entry.userId === userId
-                return (
-                  <li key={entry.userId} className={`podium-slot ${MEDAL[i]} ${mine ? 'is-me' : ''}`}>
-                    <span className="podium-rank">{entry.rank}</span>
-                    <span className="podium-name">
-                      {entry.displayName}
-                      {mine ? ' · you' : ''}
-                    </span>
-                    <span className="podium-points">{entry.totalPoints}</span>
-                    <span className="podium-sub">{entry.acceptedCount} moves</span>
-                  </li>
-                )
-              })}
-            </ol>
-          ) : null}
+          <ol className="podium">
+            {podium.map((entry, i) =>
+              entry ? (
+                <li
+                  key={entry.userId}
+                  className={`podium-slot ${MEDAL[i]} ${entry.userId === userId ? 'is-me' : ''}`}
+                >
+                  <span className="podium-rank">{entry.rank}</span>
+                  <span className="podium-name">
+                    {entry.displayName}
+                    {entry.userId === userId ? ' · you' : ''}
+                  </span>
+                  <span className="podium-points">{entry.totalPoints}</span>
+                  <span className="podium-sub">{entry.acceptedCount} moves</span>
+                </li>
+              ) : (
+                <li key={`open-${i}`} className={`podium-slot ${MEDAL[i]} is-skeleton`}>
+                  <span className="podium-rank">{i + 1}</span>
+                  <span className="podium-open">Up for grabs</span>
+                  <Skeleton width={40} height={22} radius={8} />
+                </li>
+              ),
+            )}
+          </ol>
 
           {rest.length > 0 ? (
             <ol className="board-list">

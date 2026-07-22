@@ -108,17 +108,15 @@ export function CaptureScreen({ challenge, busy, error, onBack, onSubmit }: Prop
             onChange={(e) => setCaption(e.target.value)}
             disabled={busy}
           />
-          {!isFree ? (
-            <label className="share-toggle">
-              <input
-                type="checkbox"
-                checked={shareToFeed}
-                onChange={(e) => setShareToFeed(e.target.checked)}
-                disabled={busy}
-              />
-              <span>Share to the team feed</span>
-            </label>
-          ) : null}
+          <label className={`share-toggle ${isFree ? 'is-locked' : ''}`}>
+            <input
+              type="checkbox"
+              checked={isFree ? true : shareToFeed}
+              onChange={(e) => setShareToFeed(e.target.checked)}
+              disabled={busy || isFree}
+            />
+            <span>{isFree ? 'Always shared to the team feed' : 'Share to the team feed'}</span>
+          </label>
         </div>
       ) : null}
 

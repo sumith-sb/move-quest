@@ -27,6 +27,7 @@ export type AttemptStatus =
   | 'accepted'
   | 'rejected'
   | 'error'
+  | 'deleted'
 
 export interface Criterion {
   id: string

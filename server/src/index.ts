@@ -921,6 +921,35 @@ export function createApp() {
     }
   })
 
+  // Delete your own feed post — drops it from the feed and its points.
+  app.delete('/api/feed/:attemptId', async (req, res) => {
+    const userId = requireUserId(req, res)
+    if (!userId) return
+    try {
+      await updateStore((store) => {
+        const attempt = store.attempts.find((a) => a.id === req.params.attemptId)
+        if (!attempt || attempt.userId !== userId || attempt.status !== 'accepted') {
+          const err = new Error('NOT_FOUND')
+          err.name = 'NOT_FOUND'
+          throw err
+        }
+        attempt.status = 'deleted'
+        attempt.updatedAt = nowIso()
+        // Drop reactions/comments on the removed post.
+        store.reactions = store.reactions.filter((r) => r.attemptId !== attempt.id)
+        store.comments = store.comments.filter((c) => c.attemptId !== attempt.id)
+      })
+      await pushLeaderboard()
+      res.json({ ok: true })
+    } catch (err) {
+      if ((err as Error).name === 'NOT_FOUND') {
+        res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Post not found' } })
+        return
+      }
+      throw err
+    }
+  })
+
   // Private photo access for debugging owner only — not listed on leaderboard.
   app.get('/api/attempts/:attemptId/photo', async (req, res) => {
     const userId = requireUserId(req, res)

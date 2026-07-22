@@ -17,6 +17,7 @@ import {
 } from '../settings'
 import type { User } from '../types'
 import { Avatar } from './Avatar'
+import { Logo } from './Logo'
 import { MenuButton } from './NavMenu'
 import { Toggle } from './Toggle'
 
@@ -42,10 +43,16 @@ export function SettingsScreen({ user, settings, onChange, onOpenMenu }: Props) 
     onChange({ ...settings, reminderEnabled: next })
   }
 
+  async function toggleFeedNotify(next: boolean) {
+    if (next) await ensureNotificationPermission()
+    onChange({ ...settings, feedNotify: next })
+  }
+
   return (
     <section className="screen settings-screen" aria-labelledby="settings-title">
       <header className="topbar">
         <MenuButton onClick={onOpenMenu} />
+        <Logo height={16} />
       </header>
 
       <h1 id="settings-title">Settings</h1>
@@ -121,6 +128,13 @@ export function SettingsScreen({ user, settings, onChange, onOpenMenu }: Props) 
             ) : null}
           </div>
         ) : null}
+
+        <Toggle
+          label="New posts on the feed"
+          hint="Get notified when a teammate shares a new move."
+          checked={settings.feedNotify}
+          onChange={(v) => void toggleFeedNotify(v)}
+        />
       </div>
 
       <div className="settings-group">

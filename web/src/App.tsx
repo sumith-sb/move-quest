@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   clearStoredUserId,
   createProfile,
   drawChallenges,
+  fetchFeed,
   fetchMe,
   loadStoredUserId,
   selectChallenge,
@@ -49,6 +50,9 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [settings, setSettings] = useState<Settings>(loadSettings)
+  const screenRef = useRef<Screen>(screen)
+  screenRef.current = screen
+  const seenFeedIds = useRef<Set<string> | null>(null)
 
   const refreshDraw = useCallback(async (userId: string) => {
     const drawn = await drawChallenges(userId)
@@ -104,6 +108,45 @@ export default function App() {
     mq.addEventListener('change', handler)
     return () => mq.removeEventListener('change', handler)
   }, [settings.theme])
+
+  // Poll the feed and notify when a teammate posts a new move (foreground only;
+  // a real background push would need a service worker).
+  useEffect(() => {
+    const userId = user?.id
+    if (!userId || !settings.feedNotify) return
+    let cancelled = false
+    let timer: number | undefined
+    async function poll() {
+      try {
+        const feed = await fetchFeed(userId!)
+        if (cancelled) return
+        const ids = new Set(feed.map((p) => p.id))
+        if (seenFeedIds.current === null) {
+          seenFeedIds.current = ids // seed on first poll; don't notify for backlog
+        } else {
+          const fresh = feed.filter((p) => !seenFeedIds.current!.has(p.id) && !p.isMine)
+          seenFeedIds.current = ids
+          if (fresh.length > 0 && screenRef.current !== 'feed') {
+            const first = fresh[0]
+            notify(
+              fresh.length === 1
+                ? `${first.displayName} posted a move`
+                : `${fresh.length} new moves on the feed`,
+              fresh.length === 1 ? first.challengeTitle : 'Open Move Quest to see them',
+            )
+          }
+        }
+      } catch {
+        // Ignore transient failures.
+      }
+      if (!cancelled) timer = window.setTimeout(poll, 45000)
+    }
+    void poll()
+    return () => {
+      cancelled = true
+      if (timer) window.clearTimeout(timer)
+    }
+  }, [user?.id, settings.feedNotify])
 
   function updateSettings(next: Settings) {
     setSettings(next)
@@ -190,7 +233,9 @@ export default function App() {
     setActiveChallenge(null)
     setAttempt(null)
     try {
-      await refreshDraw(user.id)
+      const [me] = await Promise.all([fetchMe(user.id), refreshDraw(user.id)])
+      setScore(me.score)
+      setUser(me.user)
       setScreen('challenges')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load challenges')

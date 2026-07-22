@@ -40,7 +40,7 @@ const RULES: Rule[] = [
   [Hash, ['exactly ', 'number', 'how many', ' count']],
   [Type, ['letter', 'a word', 'sign that', 'word or sign']],
   [GlassWater, ['water', 'hydrate', 'glass of', 'bottle', 'the tap']],
-  [Coffee, ['coffee', ' tea', 'kettle', 'brew', 'mug', 'cup', 'teapot']],
+  [Coffee, ['coffee', 'cup of tea', 'herbal', 'make tea', 'fresh tea', 'kettle', 'brew', 'mug', ' cup', 'teapot']],
   [UtensilsCrossed, ['snack', 'food', 'plate', 'toast', 'you made', 'made with', 'fruit', 'nuts', 'meal', 'dish']],
   [BookOpen, ['book', 'shelf', 'read', 'cover', 'notebook']],
   [PenTool, ['pen', 'sticky note', 'a note', 'marker', 'pencil']],

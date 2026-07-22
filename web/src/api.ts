@@ -146,6 +146,14 @@ export async function commentOnPost(
   return data.comment
 }
 
+export async function deletePost(userId: string, attemptId: string): Promise<void> {
+  const res = await fetch(`/api/feed/${attemptId}`, {
+    method: 'DELETE',
+    headers: authHeaders(userId),
+  })
+  await parseJson(res)
+}
+
 export function subscribeLeaderboard(
   onUpdate: (entries: LeaderboardEntry[]) => void,
   onError?: (err: Event) => void,

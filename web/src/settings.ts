@@ -5,6 +5,8 @@ export interface Settings {
   reminderEnabled: boolean
   /** Play the bell sound with the reminder. */
   soundEnabled: boolean
+  /** Notify when a teammate posts a new move to the feed. */
+  feedNotify: boolean
   /** Colour theme; 'system' follows the OS preference. */
   theme: ThemeChoice
 }
@@ -12,6 +14,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   reminderEnabled: false,
   soundEnabled: true,
+  feedNotify: true,
   theme: 'system',
 }
 

@@ -1,12 +1,15 @@
-import { Plus, Send, X } from 'lucide-react'
+import { Plus, Send, Trash2, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { commentOnPost, fetchFeed, reactToPost } from '../api'
+import { commentOnPost, deletePost, fetchFeed, reactToPost } from '../api'
+import { iconForChallenge } from '../challengeIcon'
 import { ROOM_ICON, ROOM_LABEL, timeAgo } from '../labels'
 import type { FeedComment, FeedPost, ReactionSummary } from '../types'
 import { Avatar } from './Avatar'
 import { EmojiPicker } from './EmojiPicker'
+import { Logo } from './Logo'
 import { MenuButton } from './NavMenu'
+import { SkeletonFeedCard } from './Skeleton'
 
 interface Props {
   userId: string
@@ -40,6 +43,7 @@ export function FeedScreen({ userId, onOpenMenu }: Props) {
     <section className="screen feed-screen" aria-labelledby="feed-title">
       <header className="topbar">
         <MenuButton onClick={onOpenMenu} />
+        <Logo height={16} />
       </header>
 
       <h1 id="feed-title">Feed</h1>
@@ -52,9 +56,10 @@ export function FeedScreen({ userId, onOpenMenu }: Props) {
       ) : null}
 
       {loading ? (
-        <p className="muted" role="status">
-          Loading the feed…
-        </p>
+        <div className="feed-list">
+          <SkeletonFeedCard />
+          <SkeletonFeedCard />
+        </div>
       ) : posts.length === 0 ? (
         <div className="empty-state">
           <h2>Nothing here yet</h2>
@@ -64,7 +69,12 @@ export function FeedScreen({ userId, onOpenMenu }: Props) {
         <ul className="feed-list">
           {posts.map((post, index) => (
             <li key={post.id} style={{ animationDelay: `${Math.min(index, 8) * 50}ms` }}>
-              <PostCard post={post} userId={userId} onOpenPhoto={setLightbox} />
+              <PostCard
+                post={post}
+                userId={userId}
+                onOpenPhoto={setLightbox}
+                onDeleted={(id) => setPosts((cur) => cur.filter((p) => p.id !== id))}
+              />
             </li>
           ))}
         </ul>
@@ -94,17 +104,26 @@ function PostCard({
   post,
   userId,
   onOpenPhoto,
+  onDeleted,
 }: {
   post: FeedPost
   userId: string
   onOpenPhoto: (url: string) => void
+  onDeleted: (id: string) => void
 }) {
   const [reactions, setReactions] = useState<ReactionSummary[]>(post.reactions)
   const [comments, setComments] = useState<FeedComment[]>(post.comments)
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const RoomIcon = ROOM_ICON[post.room]
+  const TaskIcon = iconForChallenge({
+    title: post.challengeTitle,
+    prompt: post.challengeTitle,
+    vibe: post.vibe,
+    room: post.room,
+  })
 
   async function react(emoji: string) {
     if (post.isMine) return
@@ -147,6 +166,17 @@ function PostCard({
     }
   }
 
+  async function remove() {
+    setBusy(true)
+    try {
+      await deletePost(userId, post.id)
+      onDeleted(post.id)
+    } catch {
+      setBusy(false)
+      setConfirmDelete(false)
+    }
+  }
+
   return (
     <article className={`feed-card ${post.isMine ? 'is-mine' : ''}`}>
       <header className="feed-head">
@@ -174,7 +204,16 @@ function PostCard({
       </button>
 
       <div className="feed-body">
-        <p className="feed-challenge">{post.challengeTitle}</p>
+        <div className="feed-task">
+          <span className="feed-task-icon" aria-hidden="true">
+            <TaskIcon size={16} strokeWidth={2} />
+          </span>
+          <span className="feed-task-text">
+            <span className="feed-task-label">Completed</span>
+            <span className="feed-task-title">{post.challengeTitle}</span>
+          </span>
+        </div>
+
         {post.caption ? <p className="feed-caption">{post.caption}</p> : null}
 
         <div className="reaction-bar">
@@ -248,6 +287,31 @@ function PostCard({
             <Send size={16} strokeWidth={2} />
           </button>
         </form>
+
+        {post.isMine ? (
+          confirmDelete ? (
+            <div className="feed-delete-confirm">
+              <span>Delete this post? Your points go too.</span>
+              <div className="feed-delete-actions">
+                <button type="button" className="text-btn" onClick={() => setConfirmDelete(false)} disabled={busy}>
+                  Cancel
+                </button>
+                <button type="button" className="danger-btn" onClick={() => void remove()} disabled={busy}>
+                  Delete
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="feed-delete icon-btn"
+              onClick={() => setConfirmDelete(true)}
+            >
+              <Trash2 size={15} strokeWidth={2} />
+              Delete post
+            </button>
+          )
+        ) : null}
       </div>
     </article>
   )
