@@ -114,6 +114,10 @@ body {
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  /* Balance every text block so a lone word never drops to its own line.
+     text-wrap-style is inherited, so this cascades to all descendants;
+     browsers fall back to normal wrapping for very long blocks. */
+  text-wrap: balance;
 }
 
 button,
