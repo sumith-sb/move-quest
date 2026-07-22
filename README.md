@@ -12,9 +12,17 @@ Persistence is a single JSON file plus disk uploads — no database.
 - Verification — demo auto-accept (`Looks good!`); Ollama integration retained but disabled
 - Live board — Server-Sent Events (`/api/leaderboard/stream`)
 
+## Build workflow
+
+1. Plan the product flow and implementation with GPT-5.6.
+2. Execute the plan with Cursor Grok 4.5.
+3. Use Cursor to build, test, and iterate on the application.
+4. Run the app locally and expose it publicly with Cloudflared.
+
 ## Prerequisites
 
 - Node.js 20+
+- Cloudflared (only required for public access)
 
 ## Setup
 
@@ -41,6 +49,18 @@ npm run dev:web
 ```
 
 Open the printed Vite URL (usually `http://127.0.0.1:5173`).
+
+### Public access with Cloudflared
+
+With both apps running, create a temporary public URL:
+
+```bash
+cloudflared tunnel --url http://127.0.0.1:5173 \
+  --http-host-header localhost \
+  --no-autoupdate
+```
+
+Open the generated `https://*.trycloudflare.com` URL. Quick-tunnel URLs are temporary and change whenever the tunnel restarts.
 
 ### Phone on the same LAN
 
