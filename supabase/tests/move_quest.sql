@@ -7,7 +7,7 @@ begin;
 select public.email_domain('Ada@GoodSpeed.Studio') = 'goodspeed.studio' as domain_ok;
 
 -- Challenges seeded
-select count(*) >= 11 as challenges_seeded from public.challenges where active;
+select count(*) >= 999 as challenges_seeded from public.challenges where active;
 
 -- Unique accepted constraint exists
 select count(*) = 1 as accepted_unique_exists
