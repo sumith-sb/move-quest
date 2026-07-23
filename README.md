@@ -118,6 +118,9 @@ Supabase migrations and Edge Functions are **not** deployed by this workflow —
 
 ## POC limits
 
-- No reactions, comments, push notifications, or cooldown pacing in this Supabase build.
 - JPEG only for photo submit (Edge Function guard).
+- No cooldown pacing or free-post challenge in this build.
 - Fresh Supabase project — no migration from the old JSON store.
+- **Reminders / Web Push parked** — schema + Edge stubs exist (`push_subscriptions`, `push-key`, `send-feed-push`) but are not wired in the UI. Feed reactions and comments are live.
+
+Apply the reactions/comments migration with `supabase db push` (includes parked push tables for later).

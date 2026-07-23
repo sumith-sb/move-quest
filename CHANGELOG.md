@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-07-23 — Park reminders; ship reactions + comments
+
+- **Problem:** Reminders/Web Push add VAPID ops overhead before we need them.
+- **Reason for change:** Ship feed social now; leave push schema/Edge stubs unwired for later.
+- **Scope:** Removed Settings reminder toggles, App nudge/poll/`registerPush`, verify-photo push invoke, and client push API helpers. Reactions/comments stay live.
+- **Risks:** Dormant `push_*` tables/functions remain until a later reminder pass.
+- **Verification:** PASS — `web` oxlint, `tsc -b`, `vite build`.
+
+## 2026-07-23 — Reactions, comments, and reminders
+
+- **Problem:** Feed social engagement and reminders were deferred when Express was replaced; onboarding still promised reactions/comments.
+- **Reason for change:** Port emoji reactions (+2 author bonus), comments, feed Web Push, and a daily movement nudge onto Supabase.
+- **Scope:** Migration `20260723120000_reactions_comments_push.sql`; Edge `push-key` / `send-feed-push` + verify-photo hook; FeedScreen UI; Settings toggles; SW base-path fix for GitHub Pages.
+- **Risks:** Push silent until VAPID secrets + function deploy; reaction bonus hits all-time `scores` (weekly reset still not implemented); daily nudge is client-only.
+- **Verification:** PASS — `web` oxlint, `tsc -b`, `vite build`.
+
 ## 2026-07-23 — Client-side photo compression
 
 - **Problem:** iPhone camera JPEGs often exceed the 1 MiB upload limit enforced by `verify-photo` and Storage.

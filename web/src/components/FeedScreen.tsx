@@ -1,11 +1,18 @@
-import { X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Send, SmilePlus, X } from 'lucide-react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { fetchFeed, subscribeAcceptedAttempts } from '../api'
+import {
+  commentOnPost,
+  fetchFeed,
+  reactToPost,
+  subscribeAcceptedAttempts,
+} from '../api'
 import { iconForChallenge } from '../challengeIcon'
+import { cue } from '../feedback'
 import { timeAgo } from '../labels'
-import type { FeedItem } from '../types'
+import type { FeedComment, FeedItem, ReactionSummary } from '../types'
 import { Avatar } from './Avatar'
+import { EmojiPicker } from './EmojiPicker'
 import { Logo } from './Logo'
 import { MenuButton } from './NavMenu'
 import { SkeletonFeedCard } from './Skeleton'
@@ -75,11 +82,7 @@ export function FeedScreen({ userId, onOpenMenu }: Props) {
         <ul className="feed-list">
           {items.map((item, index) => (
             <li key={item.attemptId} style={{ animationDelay: `${Math.min(index, 8) * 50}ms` }}>
-              <FeedCard
-                item={item}
-                userId={userId}
-                onOpenPhoto={setLightbox}
-              />
+              <FeedCard item={item} userId={userId} onOpenPhoto={setLightbox} />
             </li>
           ))}
         </ul>
@@ -115,10 +118,64 @@ function FeedCard({
   onOpenPhoto: (url: string) => void
 }) {
   const isMine = item.userId === userId
+  const [reactions, setReactions] = useState<ReactionSummary[]>(item.reactions)
+  const [comments, setComments] = useState<FeedComment[]>(item.comments)
+  const [draft, setDraft] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
   const TaskIcon = iconForChallenge({
     title: item.challengeTitle,
     prompt: item.challengePrompt,
   })
+  const showReactions = reactions.length > 0 || !isMine
+
+  useEffect(() => {
+    setReactions(item.reactions)
+    setComments(item.comments)
+  }, [item.reactions, item.comments])
+
+  async function react(emoji: string) {
+    if (isMine) return
+    cue.react()
+    setPickerOpen(false)
+    setReactions((cur) => {
+      const existing = cur.find((r) => r.emoji === emoji)
+      if (existing) {
+        return cur
+          .map((r) =>
+            r.emoji === emoji
+              ? { ...r, mine: !r.mine, count: r.count + (r.mine ? -1 : 1) }
+              : r,
+          )
+          .filter((r) => r.count > 0)
+      }
+      return [...cur, { emoji, count: 1, mine: true }]
+    })
+    try {
+      const authoritative = await reactToPost(item.attemptId, emoji)
+      setReactions(authoritative)
+    } catch {
+      const fresh = await reactToPost(item.attemptId, emoji).catch(() => null)
+      if (fresh) setReactions(fresh)
+    }
+  }
+
+  async function submitComment(e: FormEvent) {
+    e.preventDefault()
+    const body = draft.trim()
+    if (!body || busy) return
+    setBusy(true)
+    try {
+      const comment = await commentOnPost(item.attemptId, body)
+      cue.tick()
+      setComments((cur) => [...cur, comment])
+      setDraft('')
+    } catch {
+      // Keep the draft so the user can retry.
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
     <article className={`feed-card ${isMine ? 'is-mine' : ''}`}>
@@ -155,6 +212,84 @@ function FeedCard({
           <span className="feed-points">+{item.pointsAwarded}</span>
         </div>
       ) : null}
+
+      <div className="feed-body">
+        {showReactions ? (
+          <div className="reaction-bar">
+            {reactions.map((r) =>
+              isMine ? (
+                <span key={r.emoji} className={`reaction static ${r.mine ? 'mine' : ''}`}>
+                  <span aria-hidden="true">{r.emoji}</span>
+                  <span className="reaction-count">{r.count}</span>
+                </span>
+              ) : (
+                <button
+                  key={r.emoji}
+                  type="button"
+                  className={`reaction ${r.mine ? 'mine' : ''}`}
+                  aria-pressed={r.mine}
+                  onClick={() => void react(r.emoji)}
+                >
+                  <span aria-hidden="true">{r.emoji}</span>
+                  <span className="reaction-count">{r.count}</span>
+                </button>
+              ),
+            )}
+            {!isMine ? (
+              <div className="reaction-add">
+                <button
+                  type="button"
+                  className="reaction add"
+                  aria-label="Add a reaction"
+                  aria-expanded={pickerOpen}
+                  onClick={() => setPickerOpen((v) => !v)}
+                >
+                  <SmilePlus size={18} strokeWidth={2} />
+                </button>
+                {pickerOpen ? (
+                  <EmojiPicker onPick={(e) => void react(e)} onClose={() => setPickerOpen(false)} />
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div className="feed-comments">
+          {comments.length > 0 ? (
+            <ul className="comment-list">
+              {comments.map((c) => (
+                <li key={c.id}>
+                  <Avatar name={c.displayName} avatarUrl={c.avatarUrl} size={26} />
+                  <span className="comment-text">
+                    <span className="comment-author">{c.displayName}</span>
+                    <span className="comment-body">{c.body}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
+          <form className="comment-form" onSubmit={submitComment}>
+            <input
+              type="text"
+              maxLength={280}
+              placeholder="Add a comment…"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              disabled={busy}
+              aria-label={`Comment on ${item.displayName}'s move`}
+            />
+            <button
+              type="submit"
+              className="ghost-btn icon-btn comment-send"
+              disabled={busy || draft.trim().length < 1}
+              aria-label="Post comment"
+            >
+              <Send size={16} strokeWidth={2} />
+            </button>
+          </form>
+        </div>
+      </div>
     </article>
   )
 }

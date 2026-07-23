@@ -39,5 +39,11 @@ file_size_limit = "1MiB"
 [functions.verify-photo]
 verify_jwt = true
 
+[functions.push-key]
+verify_jwt = true
+
+[functions.send-feed-push]
+verify_jwt = false
+
 [functions.cleanup-orphans]
 verify_jwt = false

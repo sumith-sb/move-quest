@@ -1,4 +1,13 @@
-import { CalendarClock, Footprints, LogOut, Monitor, Moon, Sun, type LucideIcon } from 'lucide-react'
+import {
+  CalendarClock,
+  Footprints,
+  Heart,
+  LogOut,
+  Monitor,
+  Moon,
+  Sun,
+  type LucideIcon,
+} from 'lucide-react'
 import { cue } from '../feedback'
 import { type Settings, type ThemeChoice } from '../settings'
 import type { User } from '../types'
@@ -93,6 +102,15 @@ export function SettingsScreen({
             <span className="fact-text">
               <span className="fact-lead">Earn points for moving</span>
               <span className="fact-detail">Complete a challenge and post your photo.</span>
+            </span>
+          </li>
+          <li>
+            <span className="fact-icon">
+              <Heart size={16} strokeWidth={2} />
+            </span>
+            <span className="fact-text">
+              <span className="fact-lead">+2 per reaction</span>
+              <span className="fact-detail">Every emoji reaction your post gets earns bonus points.</span>
             </span>
           </li>
           <li>

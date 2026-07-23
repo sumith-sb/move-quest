@@ -2,8 +2,10 @@ import { functionsUrl, supabase } from './lib/supabase'
 import type {
   AttemptSummary,
   Challenge,
+  FeedComment,
   FeedItem,
   LeaderboardEntry,
+  ReactionSummary,
   Score,
   User,
   VerifyResult,
@@ -288,6 +290,14 @@ export async function fetchFeed(options?: {
     points_awarded: number
     photo_path: string
     awarded_at: string
+    reactions?: Array<{ emoji: string; count: number; mine: boolean }> | null
+    comments?: Array<{
+      id: string
+      display_name: string
+      avatar_url: string | null
+      body: string
+      created_at: string
+    }> | null
   }>
 
   const paths = rows.map((r) => r.photo_path).filter(Boolean)
@@ -314,7 +324,76 @@ export async function fetchFeed(options?: {
     photoPath: row.photo_path,
     photoUrl: urlMap.get(row.photo_path) ?? null,
     awardedAt: row.awarded_at,
+    reactions: (row.reactions ?? []).map((r) => ({
+      emoji: r.emoji,
+      count: Number(r.count),
+      mine: Boolean(r.mine),
+    })),
+    comments: (row.comments ?? []).map((c) => ({
+      id: c.id,
+      displayName: c.display_name,
+      avatarUrl: c.avatar_url,
+      body: c.body,
+      createdAt: c.created_at,
+    })),
   }))
+}
+
+export async function reactToPost(
+  attemptId: string,
+  emoji: string,
+): Promise<ReactionSummary[]> {
+  const { data, error } = await supabase.rpc('toggle_reaction', {
+    p_attempt_id: attemptId,
+    p_emoji: emoji,
+  })
+  if (error) {
+    if (error.message.includes('OWN_POST')) {
+      throw new Error('You cannot react to your own post')
+    }
+    if (error.message.includes('INVALID_EMOJI')) {
+      throw new Error('Reaction must be a single emoji')
+    }
+    throw new Error(error.message)
+  }
+  const rows = Array.isArray(data)
+    ? (data as Array<{ emoji: string; count: number; mine: boolean }>)
+    : []
+  return rows.map((r) => ({
+    emoji: r.emoji,
+    count: Number(r.count),
+    mine: Boolean(r.mine),
+  }))
+}
+
+export async function commentOnPost(
+  attemptId: string,
+  body: string,
+): Promise<FeedComment> {
+  const { data, error } = await supabase.rpc('add_comment', {
+    p_attempt_id: attemptId,
+    p_body: body,
+  })
+  if (error) {
+    if (error.message.includes('INVALID_COMMENT')) {
+      throw new Error('Comment must be 1–280 characters')
+    }
+    throw new Error(error.message)
+  }
+  const row = data as {
+    id: string
+    display_name: string
+    avatar_url: string | null
+    body: string
+    created_at: string
+  }
+  return {
+    id: row.id,
+    displayName: row.display_name,
+    avatarUrl: row.avatar_url,
+    body: row.body,
+    createdAt: row.created_at,
+  }
 }
 
 export function subscribeScores(onChange: () => void): () => void {
