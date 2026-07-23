@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-07-23 — GitHub Pages deploy on `main` → `live` PR merge
+
+- **Problem:** No automated production deploy path for the static web app.
+- **Reason for change:** Ship to GitHub Pages only when `main` is merged into `live`, avoiding accidental deploys from direct pushes or other branches.
+- **Scope:** Added `.github/workflows/deploy-pages.yml` (PR closed + merged, head `main`); README deploy section with secrets and one-time setup checklist.
+- **Risks:** Requires GitHub Pages + Action secrets configured before first merge; Supabase Auth redirect URLs must include Pages origin.
+- **Verification:** Workflow YAML added; manual verify on first `main` → `live` PR merge.
+
+## 2026-07-23 — Supabase backend (replace Express)
+
+- **Problem:** Anonymous `localStorage` identity and JSON file storage don't scale; team needs real auth and shared DB.
+- **Reason for change:** Port full Supabase Auth + Postgres/RLS/Storage from `dev-sumith` onto latest main UI; keep demo auto-accept for photos (no Cloudflare AI).
+- **Scope:**
+  - Supabase migrations, RLS, RPCs, private Storage bucket
+  - Auth UI (sign in/up, email confirm, display-name claim)
+  - Thin `verify-photo` Edge Function (claim lease → upload → finalize `Looks good!`)
+  - Web rewired to Supabase client; Express `server/` removed
+  - Main UI chrome kept (NavMenu, settings theme, feed/leaderboard visuals)
+  - Out of scope: reactions, comments, push, cooldown, free posts, room/vibe metadata
+- **Risks:** Requires deployed Edge Function + service role secret; email domain allowlist must match team; no data migration from `store.json`.
+- **Verification:** PASS — `web` oxlint, `tsc -b`, `vite build`.
+
 ## 2026-07-22 — Initial Move Quest POC
 
 - **Problem:** Need a hackathon-ready mobile web demo that gets people moving with photo challenges, AI checks, and a competitive leaderboard — without heavy infra.

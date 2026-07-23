@@ -1,10 +1,8 @@
-import { formatDuration, useCountdown } from '../countdown'
 import type { Challenge, VerifyResult } from '../types'
 
 interface Props {
   challenge: Challenge
   result: VerifyResult
-  cooldownUntil: string | null
   onRetry: () => void
   onNext: () => void
   onBoard: () => void
@@ -14,20 +12,18 @@ interface Props {
 export function ResultScreen({
   challenge,
   result,
-  cooldownUntil,
   onRetry,
   onNext,
   onBoard,
   onFeed,
 }: Props) {
-  const cooldownMs = useCountdown(cooldownUntil)
   const accepted = result.status === 'accepted'
 
   const tone = accepted ? 'success' : result.status === 'error' ? 'warn' : 'fail'
   const title = accepted
     ? "You're on the feed!"
     : result.status === 'error'
-      ? 'Could not verify'
+      ? 'Could not post'
       : 'Not quite'
 
   return (
@@ -40,14 +36,7 @@ export function ResultScreen({
         {accepted ? (
           <>
             <p className="result-points">+{result.pointsAwarded} pts</p>
-            <p className="muted">
-              Your shot is live in the team feed. Go see who reacts.
-            </p>
-            {cooldownMs > 0 ? (
-              <p className="cooldown-inline">
-                Next move unlocks in <strong>{formatDuration(cooldownMs)}</strong>
-              </p>
-            ) : null}
+            <p className="muted">Your shot is live in the team feed.</p>
           </>
         ) : (
           <>
