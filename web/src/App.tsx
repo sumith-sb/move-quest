@@ -21,6 +21,7 @@ import { NavMenu } from './components/NavMenu'
 import { ProfileSetup } from './components/ProfileSetup'
 import { ResultScreen } from './components/ResultScreen'
 import { SettingsScreen } from './components/SettingsScreen'
+import { preparePhotoForUpload } from './lib/preparePhoto'
 import { supabase } from './lib/supabase'
 import { applyTheme, loadSettings, saveSettings, type Settings } from './settings'
 import type {
@@ -42,6 +43,7 @@ export default function App() {
   const [attempt, setAttempt] = useState<AttemptSummary | null>(null)
   const [result, setResult] = useState<VerifyResult | null>(null)
   const [busy, setBusy] = useState(false)
+  const [captureBusyLabel, setCaptureBusyLabel] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -243,9 +245,12 @@ export default function App() {
   async function handleSubmit(file: File) {
     if (!attempt) return
     setBusy(true)
+    setCaptureBusyLabel('Compressing…')
     setError(null)
     try {
-      const verified = await verifyAttempt(attempt.id, file)
+      const photo = await preparePhotoForUpload(file)
+      setCaptureBusyLabel('Posting…')
+      const verified = await verifyAttempt(attempt.id, photo)
       setResult(verified)
       if (verified.status === 'accepted') {
         cue.success()
@@ -267,6 +272,7 @@ export default function App() {
       )
     } finally {
       setBusy(false)
+      setCaptureBusyLabel(null)
     }
   }
 
@@ -358,6 +364,7 @@ export default function App() {
         <CaptureScreen
           challenge={activeChallenge}
           busy={busy}
+          busyLabel={captureBusyLabel}
           error={error}
           onBack={() => void goChallenges()}
           onSubmit={(file) => void handleSubmit(file)}

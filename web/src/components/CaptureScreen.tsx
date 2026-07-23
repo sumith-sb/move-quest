@@ -6,12 +6,20 @@ import type { Challenge } from '../types'
 interface Props {
   challenge: Challenge
   busy: boolean
+  busyLabel?: string | null
   error: string | null
   onBack: () => void
   onSubmit: (file: File) => void
 }
 
-export function CaptureScreen({ challenge, busy, error, onBack, onSubmit }: Props) {
+export function CaptureScreen({
+  challenge,
+  busy,
+  busyLabel,
+  error,
+  onBack,
+  onSubmit,
+}: Props) {
   const inputId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -87,7 +95,7 @@ export function CaptureScreen({ challenge, busy, error, onBack, onSubmit }: Prop
           disabled={!file || busy}
           onClick={() => file && onSubmit(file)}
         >
-          {busy ? 'Posting…' : 'Post the move'}
+          {busy ? (busyLabel ?? 'Posting…') : 'Post the move'}
         </button>
       </div>
     </section>

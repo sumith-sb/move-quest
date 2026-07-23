@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-07-23 — Client-side photo compression
+
+- **Problem:** iPhone camera JPEGs often exceed the 1 MiB upload limit enforced by `verify-photo` and Storage.
+- **Reason for change:** Compress and resize in the browser before upload so users can post without hitting `413 TOO_LARGE`.
+- **Scope:** `web/src/lib/preparePhoto.ts`; wired in `App.tsx` / `CaptureScreen` with Compressing… / Posting… labels.
+- **Risks:** HEIC library picks still unsupported (JPEG camera path only); rare photos may fail after max compression.
+- **Verification:** PASS — `web` oxlint, `tsc -b`, `vite build`.
+
+## 2026-07-23 — Seed 1,000 Express challenges into Supabase
+
+- **Problem:** Supabase v0 migration only seeded 11 hand-written challenges; the Express catalog had 1,000 programmatic prompts.
+- **Reason for change:** Restore the full challenge pool for draws and long-term replay.
+- **Scope:** Migration `20260723100000_seed_express_challenges.sql` (upsert 1,000 rows); generator `scripts/generate-challenges-sql.mts` + `scripts/_legacy/challenges.ts`; deactivates 10 legacy v0 duplicates and `ch_free` (free-post not in Supabase v0); DB test expects `>= 999` active challenges.
+- **Risks:** ~230 KB migration; 12 duplicate slugs suffix-adjusted for Postgres `slug` unique constraint; run `supabase db push` on linked project.
+- **Verification:** Generator reports 1000 rows; slug dedupe applied; pending `supabase db push`.
+
 ## 2026-07-23 — GitHub Pages deploy on `main` → `live` PR merge
 
 - **Problem:** No automated production deploy path for the static web app.
