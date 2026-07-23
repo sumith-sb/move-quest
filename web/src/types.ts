@@ -105,6 +105,7 @@ export type Screen =
   | 'boot'
   | 'auth'
   | 'confirm'
+  | 'set-password'
   | 'profile'
   | 'challenges'
   | 'capture'

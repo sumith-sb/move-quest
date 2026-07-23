@@ -8,6 +8,7 @@ import {
   signIn,
   signOut,
   signUp,
+  updatePassword,
   verifyAttempt,
 } from './api'
 import { cue, setFeedbackEnabled } from './feedback'
@@ -20,6 +21,7 @@ import { LeaderboardScreen } from './components/LeaderboardScreen'
 import { NavMenu } from './components/NavMenu'
 import { ProfileSetup } from './components/ProfileSetup'
 import { ResultScreen } from './components/ResultScreen'
+import { SetPasswordScreen } from './components/SetPasswordScreen'
 import { SettingsScreen } from './components/SettingsScreen'
 import { preparePhotoForUpload } from './lib/preparePhoto'
 import { supabase } from './lib/supabase'
@@ -73,15 +75,9 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false
-    async function boot() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      if (cancelled) return
-      if (!session) {
-        setScreen('auth')
-        return
-      }
+    let recoveryPending = false
+
+    async function bootFromSession() {
       try {
         const me = await fetchProfile()
         if (cancelled) return
@@ -103,10 +99,33 @@ export default function App() {
         }
       }
     }
+
+    async function boot() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (cancelled) return
+      if (recoveryPending) {
+        setScreen('set-password')
+        return
+      }
+      if (!session) {
+        setScreen('auth')
+        return
+      }
+      await bootFromSession()
+    }
     void boot()
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        recoveryPending = true
+        setError(null)
+        setScreen('set-password')
+        return
+      }
       if (!session) {
+        recoveryPending = false
         setUser(null)
         setScore(null)
         setScreen('auth')
@@ -202,9 +221,25 @@ export default function App() {
     setError(null)
     try {
       await requestPasswordReset(email)
-      setNotice('Password reset email sent if that account exists.')
+      setNotice('Password reset email sent if that account exists. Open the link to choose a new password.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Reset failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleSetPassword(password: string) {
+    setBusy(true)
+    setError(null)
+    try {
+      await updatePassword(password)
+      const me = await fetchProfile()
+      if (!me) throw new Error('Profile not found')
+      if (!me.user.isActive) throw new Error('Your account is deactivated.')
+      await enterApp(me.user, me.score)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save password')
     } finally {
       setBusy(false)
     }
@@ -336,6 +371,14 @@ export default function App() {
         />
       ) : null}
 
+      {screen === 'set-password' ? (
+        <SetPasswordScreen
+          busy={busy}
+          error={error}
+          onSubmit={(password) => void handleSetPassword(password)}
+        />
+      ) : null}
+
       {screen === 'profile' ? (
         <ProfileSetup
           busy={busy}
@@ -403,7 +446,7 @@ export default function App() {
         />
       ) : null}
 
-      {user && !['auth', 'confirm', 'profile', 'boot'].includes(screen) ? (
+      {user && !['auth', 'confirm', 'set-password', 'profile', 'boot'].includes(screen) ? (
         <NavMenu
           open={menuOpen}
           current={screen}

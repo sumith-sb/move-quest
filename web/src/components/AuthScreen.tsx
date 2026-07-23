@@ -20,12 +20,26 @@ export function AuthScreen({
   const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+
+  const passwordOk = password.length >= 8
+  const confirmOk = mode !== 'signup' || (confirm.length >= 8 && confirm === password)
+  const canSubmit =
+    email.trim().length >= 3 &&
+    (mode === 'reset' || (passwordOk && confirmOk))
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    if (!canSubmit) return
     if (mode === 'signin') onSignIn(email, password)
     else if (mode === 'signup') onSignUp(email, password)
     else onReset(email)
+  }
+
+  function switchMode(next: 'signin' | 'signup' | 'reset') {
+    setMode(next)
+    setPassword('')
+    setConfirm('')
   }
 
   return (
@@ -54,19 +68,46 @@ export function AuthScreen({
 
         {mode !== 'reset' ? (
           <>
-            <label htmlFor="password">Password</label>
+            <label htmlFor="password">
+              {mode === 'signup' ? 'Choose a password' : 'Password'}
+            </label>
             <input
               id="password"
               name="password"
               type="password"
               autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
               minLength={8}
+              placeholder={mode === 'signup' ? 'At least 8 characters' : undefined}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={busy}
               required
             />
           </>
+        ) : null}
+
+        {mode === 'signup' ? (
+          <>
+            <label htmlFor="confirm-password">Confirm password</label>
+            <input
+              id="confirm-password"
+              name="confirmPassword"
+              type="password"
+              autoComplete="new-password"
+              minLength={8}
+              placeholder="Type it again"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              disabled={busy}
+              required
+            />
+          </>
+        ) : null}
+
+        {mode === 'signup' && confirm.length > 0 && confirm !== password ? (
+          <p className="banner error" role="alert">
+            Passwords do not match.
+          </p>
         ) : null}
 
         {error ? (
@@ -80,11 +121,7 @@ export function AuthScreen({
           </p>
         ) : null}
 
-        <button
-          type="submit"
-          className="primary-btn"
-          disabled={busy || email.trim().length < 3}
-        >
+        <button type="submit" className="primary-btn" disabled={busy || !canSubmit}>
           {busy
             ? 'Working…'
             : mode === 'signin'
@@ -97,16 +134,16 @@ export function AuthScreen({
 
       <div className="action-stack">
         {mode !== 'signin' ? (
-          <button type="button" className="text-btn" onClick={() => setMode('signin')}>
+          <button type="button" className="text-btn" onClick={() => switchMode('signin')}>
             Back to sign in
           </button>
         ) : null}
         {mode === 'signin' ? (
           <>
-            <button type="button" className="text-btn" onClick={() => setMode('signup')}>
+            <button type="button" className="text-btn" onClick={() => switchMode('signup')}>
               Need an account? Sign up
             </button>
-            <button type="button" className="text-btn" onClick={() => setMode('reset')}>
+            <button type="button" className="text-btn" onClick={() => switchMode('reset')}>
               Forgot password?
             </button>
           </>

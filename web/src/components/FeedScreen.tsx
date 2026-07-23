@@ -27,12 +27,13 @@ export function FeedScreen({ userId, onOpenMenu }: Props) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [lightbox, setLightbox] = useState<string | null>(null)
+  const [filter, setFilter] = useState<FeedFilter>('all')
 
   useEffect(() => {
     let cancelled = false
     async function load() {
       try {
-        const data = await fetchFeed()
+        const data = await fetchFeed({ limit: 50 })
         if (!cancelled) setItems(data)
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load feed')
@@ -42,7 +43,7 @@ export function FeedScreen({ userId, onOpenMenu }: Props) {
     }
     void load()
     const unsubscribe = subscribeAcceptedAttempts(() => {
-      void fetchFeed().then((data) => {
+      void fetchFeed({ limit: 50 }).then((data) => {
         if (!cancelled) setItems(data)
       })
     })
@@ -51,6 +52,11 @@ export function FeedScreen({ userId, onOpenMenu }: Props) {
       unsubscribe()
     }
   }, [])
+
+  const mine = items.filter((i) => i.userId === userId)
+  const others = items.filter((i) => i.userId !== userId)
+  const visible =
+    filter === 'mine' ? mine : filter === 'others' ? others : items
 
   return (
     <section className="screen feed-screen" aria-labelledby="feed-title">
@@ -61,6 +67,33 @@ export function FeedScreen({ userId, onOpenMenu }: Props) {
 
       <h1 id="feed-title">Feed</h1>
       <p className="lede">Every move the team makes, as it happens.</p>
+
+      {!loading && items.length > 0 ? (
+        <div className="feed-filter" role="tablist" aria-label="Feed filter">
+          {(
+            [
+              { id: 'all', label: 'All', count: items.length },
+              { id: 'mine', label: 'Yours', count: mine.length },
+              { id: 'others', label: 'Team', count: others.length },
+            ] as const
+          ).map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={filter === tab.id}
+              className={`feed-filter-opt ${filter === tab.id ? 'active' : ''}`}
+              onClick={() => {
+                cue.toggle()
+                setFilter(tab.id)
+              }}
+            >
+              {tab.label}
+              <span className="feed-filter-count">{tab.count}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {error ? (
         <p className="banner error" role="alert">
@@ -78,9 +111,37 @@ export function FeedScreen({ userId, onOpenMenu }: Props) {
           <h2>Nothing here yet</h2>
           <p>Be the first to get up and post a move.</p>
         </div>
+      ) : visible.length === 0 ? (
+        <div className="empty-state">
+          <h2>{filter === 'mine' ? 'No moves from you yet' : 'No team moves yet'}</h2>
+          <p>
+            {filter === 'mine'
+              ? 'Clear a challenge and your photo will show up here.'
+              : 'When teammates post, their moves land here.'}
+          </p>
+        </div>
+      ) : filter === 'all' ? (
+        <div className="feed-sections">
+          {mine.length > 0 ? (
+            <FeedSection
+              title="Yours"
+              items={mine}
+              userId={userId}
+              onOpenPhoto={setLightbox}
+            />
+          ) : null}
+          {others.length > 0 ? (
+            <FeedSection
+              title="Team"
+              items={others}
+              userId={userId}
+              onOpenPhoto={setLightbox}
+            />
+          ) : null}
+        </div>
       ) : (
         <ul className="feed-list">
-          {items.map((item, index) => (
+          {visible.map((item, index) => (
             <li key={item.attemptId} style={{ animationDelay: `${Math.min(index, 8) * 50}ms` }}>
               <FeedCard item={item} userId={userId} onOpenPhoto={setLightbox} />
             </li>
@@ -108,6 +169,33 @@ export function FeedScreen({ userId, onOpenMenu }: Props) {
   )
 }
 
+type FeedFilter = 'all' | 'mine' | 'others'
+
+function FeedSection({
+  title,
+  items,
+  userId,
+  onOpenPhoto,
+}: {
+  title: string
+  items: FeedItem[]
+  userId: string
+  onOpenPhoto: (url: string) => void
+}) {
+  return (
+    <section className="feed-section" aria-label={title}>
+      <h2 className="feed-section-title">{title}</h2>
+      <ul className="feed-list">
+        {items.map((item, index) => (
+          <li key={item.attemptId} style={{ animationDelay: `${Math.min(index, 8) * 50}ms` }}>
+            <FeedCard item={item} userId={userId} onOpenPhoto={onOpenPhoto} />
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
 function FeedCard({
   item,
   userId,
@@ -123,11 +211,11 @@ function FeedCard({
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [reactError, setReactError] = useState<string | null>(null)
   const TaskIcon = iconForChallenge({
     title: item.challengeTitle,
     prompt: item.challengePrompt,
   })
-  const showReactions = reactions.length > 0 || !isMine
 
   useEffect(() => {
     setReactions(item.reactions)
@@ -136,8 +224,10 @@ function FeedCard({
 
   async function react(emoji: string) {
     if (isMine) return
+    const previous = reactions
     cue.react()
     setPickerOpen(false)
+    setReactError(null)
     setReactions((cur) => {
       const existing = cur.find((r) => r.emoji === emoji)
       if (existing) {
@@ -154,9 +244,9 @@ function FeedCard({
     try {
       const authoritative = await reactToPost(item.attemptId, emoji)
       setReactions(authoritative)
-    } catch {
-      const fresh = await reactToPost(item.attemptId, emoji).catch(() => null)
-      if (fresh) setReactions(fresh)
+    } catch (err) {
+      setReactions(previous)
+      setReactError(err instanceof Error ? err.message : 'Could not react')
     }
   }
 
@@ -214,44 +304,49 @@ function FeedCard({
       ) : null}
 
       <div className="feed-body">
-        {showReactions ? (
-          <div className="reaction-bar">
-            {reactions.map((r) =>
-              isMine ? (
-                <span key={r.emoji} className={`reaction static ${r.mine ? 'mine' : ''}`}>
-                  <span aria-hidden="true">{r.emoji}</span>
-                  <span className="reaction-count">{r.count}</span>
-                </span>
-              ) : (
-                <button
-                  key={r.emoji}
-                  type="button"
-                  className={`reaction ${r.mine ? 'mine' : ''}`}
-                  aria-pressed={r.mine}
-                  onClick={() => void react(r.emoji)}
-                >
-                  <span aria-hidden="true">{r.emoji}</span>
-                  <span className="reaction-count">{r.count}</span>
-                </button>
-              ),
-            )}
-            {!isMine ? (
-              <div className="reaction-add">
-                <button
-                  type="button"
-                  className="reaction add"
-                  aria-label="Add a reaction"
-                  aria-expanded={pickerOpen}
-                  onClick={() => setPickerOpen((v) => !v)}
-                >
-                  <SmilePlus size={18} strokeWidth={2} />
-                </button>
-                {pickerOpen ? (
-                  <EmojiPicker onPick={(e) => void react(e)} onClose={() => setPickerOpen(false)} />
-                ) : null}
-              </div>
-            ) : null}
-          </div>
+        <div className="reaction-bar">
+          {reactions.map((r) =>
+            isMine ? (
+              <span key={r.emoji} className={`reaction static ${r.mine ? 'mine' : ''}`}>
+                <span aria-hidden="true">{r.emoji}</span>
+                <span className="reaction-count">{r.count}</span>
+              </span>
+            ) : (
+              <button
+                key={r.emoji}
+                type="button"
+                className={`reaction ${r.mine ? 'mine' : ''}`}
+                aria-pressed={r.mine}
+                onClick={() => void react(r.emoji)}
+              >
+                <span aria-hidden="true">{r.emoji}</span>
+                <span className="reaction-count">{r.count}</span>
+              </button>
+            ),
+          )}
+          {!isMine ? (
+            <div className="reaction-add">
+              <button
+                type="button"
+                className="reaction add"
+                aria-label="Add a reaction"
+                aria-expanded={pickerOpen}
+                onClick={() => setPickerOpen((v) => !v)}
+              >
+                <SmilePlus size={18} strokeWidth={2} />
+              </button>
+              {pickerOpen ? (
+                <EmojiPicker onPick={(e) => void react(e)} onClose={() => setPickerOpen(false)} />
+              ) : null}
+            </div>
+          ) : reactions.length === 0 ? (
+            <p className="muted reaction-empty">Teammates can react to your move</p>
+          ) : null}
+        </div>
+        {reactError ? (
+          <p className="banner error" role="alert">
+            {reactError}
+          </p>
         ) : null}
 
         <div className="feed-comments">

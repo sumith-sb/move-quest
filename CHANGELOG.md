@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-07-23 — Set-password after reset / clearer signup password
+
+- **Problem:** Forgot-password and invite links had no UI to choose a password; signup password was easy to miss on mobile.
+- **Reason for change:** Handle `PASSWORD_RECOVERY` with a Set Password screen; require confirm-password on signup; tighten submit gating.
+- **Scope:** `SetPasswordScreen`, `updatePassword`, Auth/Confirm copy, App auth listener.
+- **Risks:** Recovery redirect URLs must include the live app origin in Supabase Auth settings.
+- **Verification:** PASS — `web` oxlint, `tsc -b`, `vite build`.
+
+## 2026-07-23 — Feed Yours / Team sections + remaining count + reaction UX
+
+- **Problem:** Feed mixed everyone’s posts; remaining challenges capped at 12; own-post reaction bar was hidden.
+- **Reason for change:** Split feed into Yours/Team (filter + All sections), real remaining count RPC, clearer reaction UX.
+- **Scope:** `FeedScreen` filter/sections; `count_remaining_challenges` migration; `reactToPost`/FeedCard fixes.
+- **Risks:** Feed still loads latest 50 only.
+- **Verification:** PASS — `web` oxlint, `tsc -b`, `vite build`.
+
+## 2026-07-23 — Fix static “12 challenges left”
+
+- **Problem:** Challenges screen always showed at most 12 left — `draw_challenges` hard-caps `limit` at 12, and remaining was derived from that draw.
+- **Reason for change:** Show the real unfinished catalog size (~1000 after seed).
+- **Scope:** Migration `count_remaining_challenges`; `drawChallenges()` uses the new RPC.
+- **Risks:** None — draw triad still capped at 12 internally.
+- **Verification:** PASS — `web` oxlint, `tsc -b`, `vite build`.
+
 ## 2026-07-23 — Park reminders; ship reactions + comments
 
 - **Problem:** Reminders/Web Push add VAPID ops overhead before we need them.
