@@ -1,12 +1,6 @@
 export type ThemeChoice = 'system' | 'light' | 'dark'
 
 export interface Settings {
-  /** Ring when the movement cooldown ends. */
-  reminderEnabled: boolean
-  /** Play the bell sound with the reminder. */
-  soundEnabled: boolean
-  /** Notify when a teammate posts a new move to the feed. */
-  feedNotify: boolean
   /** Interface sounds + haptics on interactions. */
   uiFeedback: boolean
   /** Colour theme; 'system' follows the OS preference. */
@@ -14,9 +8,6 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  reminderEnabled: false,
-  soundEnabled: true,
-  feedNotify: true,
   uiFeedback: true,
   theme: 'system',
 }
@@ -38,7 +29,12 @@ const KEY = 'move-quest-settings'
 export function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem(KEY)
-    return raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : DEFAULT_SETTINGS
+    if (!raw) return DEFAULT_SETTINGS
+    const parsed = JSON.parse(raw) as Partial<Settings>
+    return {
+      uiFeedback: parsed.uiFeedback ?? DEFAULT_SETTINGS.uiFeedback,
+      theme: parsed.theme ?? DEFAULT_SETTINGS.theme,
+    }
   } catch {
     return DEFAULT_SETTINGS
   }
@@ -49,24 +45,5 @@ export function saveSettings(settings: Settings): void {
     localStorage.setItem(KEY, JSON.stringify(settings))
   } catch {
     // Storage unavailable — settings just won't persist.
-  }
-}
-
-/** Ask for notification permission; resolves to whether it's granted. */
-export async function ensureNotificationPermission(): Promise<boolean> {
-  if (!('Notification' in window)) return false
-  if (Notification.permission === 'granted') return true
-  if (Notification.permission === 'denied') return false
-  const result = await Notification.requestPermission()
-  return result === 'granted'
-}
-
-export function notify(title: string, body: string): void {
-  try {
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification(title, { body })
-    }
-  } catch {
-    // Ignore — notifications are best-effort.
   }
 }

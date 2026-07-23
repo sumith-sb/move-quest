@@ -1,16 +1,13 @@
 {
   "name": "move-quest",
   "private": true,
-  "version": "0.1.0",
-  "description": "Mobile photo-challenge POC with camera capture and live scoring",
+  "version": "0.2.0",
+  "description": "Team photo-challenge app with Supabase auth, live camera verification, and social feed",
   "scripts": {
-    "dev": "npm run dev:server & npm run dev:web; wait",
-    "dev:server": "npm run dev --prefix server",
+    "dev": "npm run dev --prefix web",
     "dev:web": "npm run dev --prefix web",
-    "start:server": "npm start --prefix server",
-    "test": "npm test --prefix server",
-    "build": "npm run build --prefix server && npm run build --prefix web",
+    "build": "npm run build --prefix web",
     "lint": "npm run lint --prefix web",
-    "reset-data": "node -e \"import('node:fs').then(fs=>fs.promises.writeFile('server/data/store.json', JSON.stringify({users:[],attempts:[],scores:[]},null,2)+'\\n'))\""
+    "preview": "npm run preview --prefix web"
   }
 }

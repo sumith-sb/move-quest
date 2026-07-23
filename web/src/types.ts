@@ -19,10 +19,10 @@ export type Vibe =
 
 export interface User {
   id: string
-  displayName: string
+  displayName: string | null
+  emailDomain: string
+  isActive: boolean
   createdAt: string
-  cooldownUntil: string | null
-  avatarUrl: string | null
 }
 
 export interface Score {
@@ -39,9 +39,9 @@ export interface Challenge {
   title: string
   prompt: string
   difficulty: Difficulty
-  room: Room
-  vibe: Vibe
   points: number
+  room?: Room
+  vibe?: Vibe
 }
 
 export interface AttemptSummary {
@@ -71,39 +71,24 @@ export interface LeaderboardEntry {
   updatedAt: string
 }
 
-export interface ReactionSummary {
-  emoji: string
-  count: number
-  mine: boolean
-}
-
-export interface FeedComment {
-  id: string
+export interface FeedItem {
+  attemptId: string
+  userId: string
   displayName: string
-  avatarUrl: string | null
-  body: string
-  createdAt: string
-}
-
-export interface FeedPost {
-  id: string
-  displayName: string
-  avatarUrl: string | null
-  isMine: boolean
-  photoUrl: string
-  caption: string | null
+  challengeId: string
   challengeTitle: string
-  room: Room
-  vibe: Vibe
-  points: number
-  createdAt: string
-  reactions: ReactionSummary[]
-  comments: FeedComment[]
+  challengePrompt: string
+  pointsAwarded: number
+  photoPath: string
+  photoUrl: string | null
+  awardedAt: string
 }
 
 export type Screen =
   | 'boot'
-  | 'onboarding'
+  | 'auth'
+  | 'confirm'
+  | 'profile'
   | 'challenges'
   | 'capture'
   | 'result'

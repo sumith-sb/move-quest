@@ -1,6 +1,6 @@
 import { Clock } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { fetchLeaderboard, subscribeLeaderboard } from '../api'
+import { fetchLeaderboard, subscribeScores } from '../api'
 import type { LeaderboardEntry } from '../types'
 import { Logo } from './Logo'
 import { MenuButton } from './NavMenu'
@@ -43,27 +43,26 @@ export function LeaderboardScreen({ userId, onOpenMenu }: Props) {
 
   useEffect(() => {
     let cancelled = false
-    fetchLeaderboard()
-      .then((data) => {
+    async function load() {
+      try {
+        const data = await fetchLeaderboard()
         if (!cancelled) setEntries(data)
-      })
-      .catch((err: Error) => {
-        if (!cancelled) setError(err.message)
-      })
-      .finally(() => {
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load board')
+      } finally {
         if (!cancelled) setLoading(false)
-      })
-
-    const unsubscribe = subscribeLeaderboard(
-      (data) => {
+      }
+    }
+    void load()
+    const unsubscribe = subscribeScores(() => {
+      void fetchLeaderboard().then((data) => {
         if (!cancelled) {
           setEntries(data)
           setLoading(false)
           setError(null)
         }
-      },
-      () => {},
-    )
+      })
+    })
     return () => {
       cancelled = true
       unsubscribe()
@@ -84,7 +83,7 @@ export function LeaderboardScreen({ userId, onOpenMenu }: Props) {
 
       <h1 id="board-title">This Week</h1>
       <div className="board-subhead">
-        <p className="lede">Points reset every Monday. Reactions on your posts count too.</p>
+        <p className="lede">Points from accepted moves. Top three get the podium.</p>
         <span className="reset-chip">
           <Clock size={14} strokeWidth={2} aria-hidden="true" />
           Resets in {formatReset(resetMs)}

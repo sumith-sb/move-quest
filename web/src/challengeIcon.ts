@@ -79,11 +79,13 @@ const VIBE_ICON: Record<Vibe, LucideIcon> = {
 
 /** Pick an appropriate icon for a challenge from its text, then vibe, then room. */
 export function iconForChallenge(
-  challenge: Pick<Challenge, 'title' | 'prompt' | 'vibe' | 'room'>,
+  challenge: Pick<Challenge, 'title' | 'prompt'> & Partial<Pick<Challenge, 'vibe' | 'room'>>,
 ): LucideIcon {
   const hay = `${challenge.title} ${challenge.prompt}`.toLowerCase()
   for (const [icon, keywords] of RULES) {
     if (keywords.some((k) => hay.includes(k))) return icon
   }
-  return VIBE_ICON[challenge.vibe] ?? ROOM_ICON[challenge.room]
+  const vibe = challenge.vibe ?? 'movement'
+  const room = challenge.room ?? 'anywhere'
+  return VIBE_ICON[vibe] ?? ROOM_ICON[room]
 }

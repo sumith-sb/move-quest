@@ -1,21 +1,6 @@
-import {
-  Bell,
-  CalendarClock,
-  Footprints,
-  Heart,
-  type LucideIcon,
-  Monitor,
-  Moon,
-  Sun,
-  Volume2,
-} from 'lucide-react'
-import { playChime } from '../chime'
+import { CalendarClock, Footprints, LogOut, Monitor, Moon, Sun, type LucideIcon } from 'lucide-react'
 import { cue } from '../feedback'
-import {
-  ensureNotificationPermission,
-  type Settings,
-  type ThemeChoice,
-} from '../settings'
+import { type Settings, type ThemeChoice } from '../settings'
 import type { User } from '../types'
 import { Avatar } from './Avatar'
 import { Logo } from './Logo'
@@ -33,22 +18,16 @@ interface Props {
   settings: Settings
   onChange: (settings: Settings) => void
   onOpenMenu: () => void
+  onSignOut: () => void
 }
 
-export function SettingsScreen({ user, settings, onChange, onOpenMenu }: Props) {
-  const notifBlocked =
-    typeof Notification !== 'undefined' && Notification.permission === 'denied'
-
-  async function toggleReminder(next: boolean) {
-    if (next) await ensureNotificationPermission()
-    onChange({ ...settings, reminderEnabled: next })
-  }
-
-  async function toggleFeedNotify(next: boolean) {
-    if (next) await ensureNotificationPermission()
-    onChange({ ...settings, feedNotify: next })
-  }
-
+export function SettingsScreen({
+  user,
+  settings,
+  onChange,
+  onOpenMenu,
+  onSignOut,
+}: Props) {
   return (
     <section className="screen settings-screen" aria-labelledby="settings-title">
       <header className="topbar">
@@ -59,14 +38,10 @@ export function SettingsScreen({ user, settings, onChange, onOpenMenu }: Props) 
       <h1 id="settings-title">Settings</h1>
 
       <div className="profile-row">
-        <Avatar name={user.displayName} avatarUrl={user.avatarUrl} size={52} />
+        <Avatar name={user.displayName ?? 'Player'} size={52} />
         <div className="profile-text">
-          <p className="profile-name">{user.displayName}</p>
-          <p className="muted profile-note">
-            {user.avatarUrl
-              ? 'Photo from your Google account'
-              : 'Sign in with Google to use your photo'}
-          </p>
+          <p className="profile-name">{user.displayName ?? 'Player'}</p>
+          <p className="muted profile-note">{user.emailDomain}</p>
         </div>
       </div>
 
@@ -107,69 +82,23 @@ export function SettingsScreen({ user, settings, onChange, onOpenMenu }: Props) 
 
       <div className="settings-group">
         <div className="settings-group-head">
-          <Bell size={16} strokeWidth={2} aria-hidden="true" />
-          <p className="settings-group-title">Reminders</p>
-        </div>
-
-        <Toggle
-          label="Movement reminder"
-          hint="Ring and notify the moment your next move unlocks."
-          checked={settings.reminderEnabled}
-          onChange={(v) => void toggleReminder(v)}
-        />
-
-        {settings.reminderEnabled ? (
-          <div className="settings-nested">
-            <Toggle
-              label="Bell sound"
-              hint="Play a gentle chime with the reminder."
-              checked={settings.soundEnabled}
-              onChange={(v) => onChange({ ...settings, soundEnabled: v })}
-            />
-            {settings.soundEnabled ? (
-              <button type="button" className="ghost-btn icon-btn test-bell" onClick={() => playChime()}>
-                <Volume2 size={16} strokeWidth={2} />
-                Test the bell
-              </button>
-            ) : null}
-            {notifBlocked ? (
-              <p className="setting-note">
-                Notifications are blocked in your browser. You&apos;ll still hear the bell.
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-
-        <Toggle
-          label="New posts on the feed"
-          hint="Get notified when a teammate shares a new move."
-          checked={settings.feedNotify}
-          onChange={(v) => void toggleFeedNotify(v)}
-        />
-      </div>
-
-      <div className="settings-group">
-        <div className="settings-group-head">
           <CalendarClock size={16} strokeWidth={2} aria-hidden="true" />
           <p className="settings-group-title">How scoring works</p>
         </div>
         <ul className="fact-list">
           <li>
-            <span className="fact-icon"><Footprints size={16} strokeWidth={2} /></span>
+            <span className="fact-icon">
+              <Footprints size={16} strokeWidth={2} />
+            </span>
             <span className="fact-text">
               <span className="fact-lead">Earn points for moving</span>
-              <span className="fact-detail">A bigger effort earns a bit more.</span>
+              <span className="fact-detail">Complete a challenge and post your photo.</span>
             </span>
           </li>
           <li>
-            <span className="fact-icon"><Heart size={16} strokeWidth={2} /></span>
-            <span className="fact-text">
-              <span className="fact-lead">+2 per reaction</span>
-              <span className="fact-detail">Every emoji your post gets adds to your score.</span>
+            <span className="fact-icon">
+              <CalendarClock size={16} strokeWidth={2} />
             </span>
-          </li>
-          <li>
-            <span className="fact-icon"><CalendarClock size={16} strokeWidth={2} /></span>
             <span className="fact-text">
               <span className="fact-lead">Fresh start weekly</span>
               <span className="fact-detail">The board resets every Monday.</span>
@@ -177,6 +106,11 @@ export function SettingsScreen({ user, settings, onChange, onOpenMenu }: Props) 
           </li>
         </ul>
       </div>
+
+      <button type="button" className="secondary-btn icon-btn" onClick={onSignOut}>
+        <LogOut size={16} strokeWidth={2} />
+        Sign out
+      </button>
     </section>
   )
 }

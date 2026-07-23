@@ -1,33 +1,28 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
-  clearStoredUserId,
-  createProfile,
+  claimDisplayName,
   drawChallenges,
-  fetchFeed,
-  fetchMe,
-  loadStoredUserId,
+  fetchProfile,
+  requestPasswordReset,
   selectChallenge,
-  storeUserId,
+  signIn,
+  signOut,
+  signUp,
   verifyAttempt,
 } from './api'
-import { playChime } from './chime'
 import { cue, setFeedbackEnabled } from './feedback'
-import { registerPush } from './push'
+import { AuthScreen } from './components/AuthScreen'
 import { CaptureScreen } from './components/CaptureScreen'
 import { ChallengePicker } from './components/ChallengePicker'
+import { ConfirmScreen } from './components/ConfirmScreen'
 import { FeedScreen } from './components/FeedScreen'
 import { LeaderboardScreen } from './components/LeaderboardScreen'
 import { NavMenu } from './components/NavMenu'
-import { Onboarding } from './components/Onboarding'
+import { ProfileSetup } from './components/ProfileSetup'
 import { ResultScreen } from './components/ResultScreen'
 import { SettingsScreen } from './components/SettingsScreen'
-import {
-  applyTheme,
-  loadSettings,
-  notify,
-  saveSettings,
-  type Settings,
-} from './settings'
+import { supabase } from './lib/supabase'
+import { applyTheme, loadSettings, saveSettings, type Settings } from './settings'
 import type {
   AttemptSummary,
   Challenge,
@@ -42,67 +37,86 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null)
   const [score, setScore] = useState<Score | null>(null)
   const [challenges, setChallenges] = useState<Challenge[]>([])
-  const [freeChallenge, setFreeChallenge] = useState<Challenge | null>(null)
-  const [cooldownUntil, setCooldownUntil] = useState<string | null>(null)
+  const [remaining, setRemaining] = useState(0)
   const [activeChallenge, setActiveChallenge] = useState<Challenge | null>(null)
   const [attempt, setAttempt] = useState<AttemptSummary | null>(null)
   const [result, setResult] = useState<VerifyResult | null>(null)
   const [busy, setBusy] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [settings, setSettings] = useState<Settings>(loadSettings)
-  const screenRef = useRef<Screen>(screen)
-  screenRef.current = screen
-  const seenFeedIds = useRef<Set<string> | null>(null)
-  const [pushActive, setPushActive] = useState(false)
 
-  const refreshDraw = useCallback(async (userId: string) => {
-    const drawn = await drawChallenges(userId)
+  const refreshDraw = useCallback(async () => {
+    const drawn = await drawChallenges()
     setChallenges(drawn.challenges)
-    setFreeChallenge(drawn.freeChallenge)
-    setCooldownUntil(drawn.cooldownUntil)
+    setRemaining(drawn.remaining)
   }, [])
+
+  const enterApp = useCallback(
+    async (profile: User, nextScore: Score) => {
+      setUser(profile)
+      setScore(nextScore)
+      if (!profile.displayName) {
+        setScreen('profile')
+        return
+      }
+      await refreshDraw()
+      setScreen('challenges')
+    },
+    [refreshDraw],
+  )
 
   useEffect(() => {
     let cancelled = false
     async function boot() {
-      const stored = loadStoredUserId()
-      if (!stored) {
-        if (!cancelled) setScreen('onboarding')
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (cancelled) return
+      if (!session) {
+        setScreen('auth')
         return
       }
       try {
-        const me = await fetchMe(stored)
+        const me = await fetchProfile()
         if (cancelled) return
-        setUser(me.user)
-        setScore(me.score)
-        await refreshDraw(me.user.id)
-        if (!cancelled) setScreen('challenges')
-      } catch {
-        clearStoredUserId()
-        if (!cancelled) setScreen('onboarding')
+        if (!me) {
+          setScreen('auth')
+          return
+        }
+        if (!me.user.isActive) {
+          setError('Your account is deactivated.')
+          await signOut()
+          setScreen('auth')
+          return
+        }
+        await enterApp(me.user, me.score)
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Could not load profile')
+          setScreen('auth')
+        }
       }
     }
     void boot()
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        setUser(null)
+        setScore(null)
+        setScreen('auth')
+      }
+    })
+
     return () => {
       cancelled = true
+      sub.subscription.unsubscribe()
     }
-  }, [refreshDraw])
+  }, [enterApp])
 
-  // Movement reminder: ring + notify the moment the cooldown ends.
-  useEffect(() => {
-    if (!settings.reminderEnabled || !cooldownUntil) return
-    const ms = new Date(cooldownUntil).getTime() - Date.now()
-    if (ms <= 0) return
-    const id = window.setTimeout(() => {
-      if (settings.soundEnabled) playChime()
-      notify('Time to move', 'Your next Move Quest is ready.')
-    }, ms)
-    return () => window.clearTimeout(id)
-  }, [settings.reminderEnabled, settings.soundEnabled, cooldownUntil])
-
-  // Apply the theme, and follow the OS while on "system".
   useEffect(() => {
     applyTheme(settings.theme)
     if (settings.theme !== 'system') return
@@ -111,60 +125,6 @@ export default function App() {
     mq.addEventListener('change', handler)
     return () => mq.removeEventListener('change', handler)
   }, [settings.theme])
-
-  // Register Web Push so notifications arrive even when the tab is closed.
-  useEffect(() => {
-    const userId = user?.id
-    if (!userId || !settings.feedNotify) {
-      setPushActive(false)
-      return
-    }
-    let cancelled = false
-    void registerPush(userId).then((ok) => {
-      if (!cancelled) setPushActive(ok)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [user?.id, settings.feedNotify])
-
-  // Fallback: when push isn't available, poll the feed and notify in-app.
-  useEffect(() => {
-    const userId = user?.id
-    if (!userId || !settings.feedNotify || pushActive) return
-    let cancelled = false
-    let timer: number | undefined
-    async function poll() {
-      try {
-        const feed = await fetchFeed(userId!)
-        if (cancelled) return
-        const ids = new Set(feed.map((p) => p.id))
-        if (seenFeedIds.current === null) {
-          seenFeedIds.current = ids // seed on first poll; don't notify for backlog
-        } else {
-          const fresh = feed.filter((p) => !seenFeedIds.current!.has(p.id) && !p.isMine)
-          seenFeedIds.current = ids
-          if (fresh.length > 0 && screenRef.current !== 'feed') {
-            const first = fresh[0]
-            notify(
-              fresh.length === 1
-                ? `${first.displayName} posted a move`
-                : `${fresh.length} new moves on the feed`,
-              fresh.length === 1 ? first.challengeTitle : 'Open Move Quest to see them',
-            )
-          }
-        }
-      } catch {
-        // Ignore transient failures.
-      }
-      if (!cancelled) timer = window.setTimeout(poll, 45000)
-    }
-    void poll()
-    return () => {
-      cancelled = true
-      if (timer) window.clearTimeout(timer)
-    }
-  }, [user?.id, settings.feedNotify, pushActive])
 
   useEffect(() => {
     setFeedbackEnabled(settings.uiFeedback)
@@ -191,36 +151,84 @@ export default function App() {
     }
   }
 
-  async function handleJoin(displayName: string) {
+  async function handleSignIn(email: string, password: string) {
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    try {
+      await signIn(email, password)
+      const me = await fetchProfile()
+      if (!me) throw new Error('Profile not found')
+      if (!me.user.isActive) throw new Error('Your account is deactivated.')
+      await enterApp(me.user, me.score)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Sign in failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleSignUp(email: string, password: string) {
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    try {
+      const data = await signUp(email, password)
+      if (data.session) {
+        const me = await fetchProfile()
+        if (me) {
+          await enterApp(me.user, me.score)
+          return
+        }
+      }
+      setPendingEmail(email)
+      setScreen('confirm')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Sign up failed'
+      if (message.toLowerCase().includes('domain') || message.includes('EMAIL_DOMAIN')) {
+        setError('That email domain is not allowed for this team app.')
+      } else {
+        setError(message)
+      }
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleReset(email: string) {
     setBusy(true)
     setError(null)
     try {
-      const created = await createProfile(displayName)
-      storeUserId(created.id)
-      setUser(created)
-      setScore({
-        userId: created.id,
-        displayName: created.displayName,
-        totalPoints: 0,
-        acceptedCount: 0,
-        updatedAt: created.createdAt,
-      })
-      await refreshDraw(created.id)
-      setScreen('challenges')
+      await requestPasswordReset(email)
+      setNotice('Password reset email sent if that account exists.')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not join')
+      setError(err instanceof Error ? err.message : 'Reset failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleProfile(displayName: string) {
+    setBusy(true)
+    setError(null)
+    try {
+      const updated = await claimDisplayName(displayName)
+      const me = await fetchProfile()
+      if (!me) throw new Error('Profile missing')
+      await enterApp(updated, me.score)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save name')
     } finally {
       setBusy(false)
     }
   }
 
   async function handlePick(challenge: Challenge) {
-    if (!user) return
     cue.select()
     setBusyId(challenge.id)
     setError(null)
     try {
-      const selected = await selectChallenge(user.id, challenge.id)
+      const selected = await selectChallenge(challenge.id)
       setActiveChallenge(selected.challenge)
       setAttempt(selected.attempt)
       setResult(null)
@@ -232,47 +240,61 @@ export default function App() {
     }
   }
 
-  async function handleSubmit(file: File, caption: string, sharedToFeed: boolean) {
-    if (!user || !attempt) return
+  async function handleSubmit(file: File) {
+    if (!attempt) return
     setBusy(true)
     setError(null)
     try {
-      const verified = await verifyAttempt(user.id, attempt.id, file, caption, sharedToFeed)
-      setAttempt(verified.attempt)
-      setActiveChallenge(verified.challenge)
-      setResult(verified.result)
-      if (verified.result.status === 'accepted') {
+      const verified = await verifyAttempt(attempt.id, file)
+      setResult(verified)
+      if (verified.status === 'accepted') {
         cue.success()
-        const me = await fetchMe(user.id)
-        setScore(me.score)
-        setUser(me.user)
-        setCooldownUntil(me.user.cooldownUntil)
+        const me = await fetchProfile()
+        if (me) {
+          setScore(me.score)
+          setUser(me.user)
+        }
       } else {
         cue.error()
       }
       setScreen('result')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed')
+      const message = err instanceof Error ? err.message : 'Upload failed'
+      setError(
+        message === 'Load failed' || message === 'Failed to fetch'
+          ? 'Could not reach the verifier (network/CORS). Check you’re online and verify-photo is deployed.'
+          : message,
+      )
     } finally {
       setBusy(false)
     }
   }
 
   async function goChallenges() {
-    if (!user) return
     setError(null)
     setResult(null)
     setActiveChallenge(null)
     setAttempt(null)
     try {
-      const [me] = await Promise.all([fetchMe(user.id), refreshDraw(user.id)])
-      setScore(me.score)
-      setUser(me.user)
+      const me = await fetchProfile()
+      if (me) {
+        setScore(me.score)
+        setUser(me.user)
+      }
+      await refreshDraw()
       setScreen('challenges')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load challenges')
       setScreen('challenges')
     }
+  }
+
+  async function handleSignOut() {
+    await signOut()
+    setUser(null)
+    setScore(null)
+    setMenuOpen(false)
+    setScreen('auth')
   }
 
   if (screen === 'boot') {
@@ -287,21 +309,46 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      {screen === 'onboarding' ? (
-        <Onboarding busy={busy} error={error} onSubmit={handleJoin} />
+      {screen === 'auth' ? (
+        <AuthScreen
+          busy={busy}
+          error={error}
+          notice={notice}
+          onSignIn={(e, p) => void handleSignIn(e, p)}
+          onSignUp={(e, p) => void handleSignUp(e, p)}
+          onReset={(e) => void handleReset(e)}
+        />
+      ) : null}
+
+      {screen === 'confirm' ? (
+        <ConfirmScreen
+          email={pendingEmail}
+          onBack={() => {
+            setError(null)
+            setScreen('auth')
+          }}
+        />
+      ) : null}
+
+      {screen === 'profile' ? (
+        <ProfileSetup
+          busy={busy}
+          error={error}
+          onSubmit={(name) => void handleProfile(name)}
+          onSignOut={() => void handleSignOut()}
+        />
       ) : null}
 
       {screen === 'challenges' && user && score ? (
         <ChallengePicker
           challenges={challenges}
-          freeChallenge={freeChallenge}
-          cooldownUntil={cooldownUntil}
+          remaining={remaining}
           scorePoints={score.totalPoints}
-          displayName={user.displayName}
+          displayName={user.displayName ?? 'Player'}
           busyId={busyId}
           error={error}
           onPick={handlePick}
-          onReshuffle={() => void refreshDraw(user.id)}
+          onReshuffle={() => void goChallenges()}
           onOpenMenu={openMenu}
           onOpenFeed={() => setScreen('feed')}
         />
@@ -313,7 +360,7 @@ export default function App() {
           busy={busy}
           error={error}
           onBack={() => void goChallenges()}
-          onSubmit={(file, caption, shared) => void handleSubmit(file, caption, shared)}
+          onSubmit={(file) => void handleSubmit(file)}
         />
       ) : null}
 
@@ -321,7 +368,6 @@ export default function App() {
         <ResultScreen
           challenge={activeChallenge}
           result={result}
-          cooldownUntil={cooldownUntil}
           onRetry={() => {
             setError(null)
             setScreen('capture')
@@ -346,15 +392,18 @@ export default function App() {
           settings={settings}
           onChange={updateSettings}
           onOpenMenu={openMenu}
+          onSignOut={() => void handleSignOut()}
         />
       ) : null}
 
-      <NavMenu
-        open={menuOpen}
-        current={screen}
-        onNavigate={navigate}
-        onClose={() => setMenuOpen(false)}
-      />
+      {user && !['auth', 'confirm', 'profile', 'boot'].includes(screen) ? (
+        <NavMenu
+          open={menuOpen}
+          current={screen}
+          onNavigate={navigate}
+          onClose={() => setMenuOpen(false)}
+        />
+      ) : null}
     </div>
   )
 }
