@@ -137,6 +137,11 @@ export async function requestPasswordReset(email: string) {
   if (error) throw new Error(authErrorMessage(error))
 }
 
+export async function updatePassword(password: string): Promise<void> {
+  const { error } = await supabase.auth.updateUser({ password })
+  if (error) throw new Error(authErrorMessage(error))
+}
+
 export async function signOut() {
   const { error } = await supabase.auth.signOut()
   if (error) throw new Error(authErrorMessage(error))
@@ -176,8 +181,12 @@ export async function drawChallenges(): Promise<{
   if (error) throw new Error(error.message)
   const challenges = (data ?? []).map(mapChallenge)
 
-  const { data: all } = await supabase.rpc('draw_challenges', { p_limit: 99 })
-  return { challenges, remaining: (all ?? []).length }
+  const { data: remaining, error: remErr } = await supabase.rpc(
+    'count_remaining_challenges',
+  )
+  if (remErr) throw new Error(remErr.message)
+
+  return { challenges, remaining: Number(remaining ?? 0) }
 }
 
 export async function selectChallenge(
@@ -356,10 +365,16 @@ export async function reactToPost(
     }
     throw new Error(error.message)
   }
-  const rows = Array.isArray(data)
-    ? (data as Array<{ emoji: string; count: number; mine: boolean }>)
-    : []
-  return rows.map((r) => ({
+
+  const parsed: unknown =
+    typeof data === 'string'
+      ? (JSON.parse(data) as unknown)
+      : data
+  if (!Array.isArray(parsed)) {
+    throw new Error('Unexpected reaction response')
+  }
+
+  return parsed.map((r: { emoji: string; count: number; mine: boolean }) => ({
     emoji: r.emoji,
     count: Number(r.count),
     mine: Boolean(r.mine),

@@ -959,6 +959,70 @@ h2 {
   gap: 1rem;
 }
 
+.feed-filter {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.3rem;
+  margin: 0 0 1.1rem;
+  padding: 0.3rem;
+  background: var(--bg-sunken);
+  border-radius: var(--radius-md);
+}
+
+.feed-filter-opt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 40px;
+  padding: 0.45rem 0.4rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-muted);
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 0.88rem;
+  transition: transform var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.feed-filter-opt.active {
+  background: var(--bg-elevated);
+  color: var(--fg);
+  box-shadow: var(--shadow-sm);
+}
+
+.feed-filter-opt:not(.active):active {
+  transform: scale(0.97);
+}
+
+.feed-filter-count {
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-subtle);
+}
+
+.feed-filter-opt.active .feed-filter-count {
+  color: var(--fg-muted);
+}
+
+.feed-sections {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.feed-section-title {
+  margin: 0 0 0.65rem;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+}
+
 .feed-list li {
   animation: rise var(--dur-enter) var(--ease-out) both;
 }
@@ -1179,6 +1243,12 @@ h2 {
   color: var(--fg-muted);
   font-size: 1.05rem;
   padding-inline: 0.75rem;
+}
+
+.reaction-empty {
+  margin: 0;
+  font-size: 0.85rem;
+  align-self: center;
 }
 
 /* --- Emoji picker --------------------------------------------------------- */
