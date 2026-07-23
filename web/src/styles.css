@@ -961,7 +961,7 @@ h2 {
 
 .feed-filter {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 0.3rem;
   margin: 0 0 1.1rem;
   padding: 0.3rem;

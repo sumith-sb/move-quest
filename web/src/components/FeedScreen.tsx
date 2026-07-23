@@ -27,7 +27,7 @@ export function FeedScreen({ userId, onOpenMenu }: Props) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [lightbox, setLightbox] = useState<string | null>(null)
-  const [filter, setFilter] = useState<FeedFilter>('all')
+  const [filter, setFilter] = useState<FeedFilter>('others')
 
   useEffect(() => {
     let cancelled = false
@@ -55,8 +55,7 @@ export function FeedScreen({ userId, onOpenMenu }: Props) {
 
   const mine = items.filter((i) => i.userId === userId)
   const others = items.filter((i) => i.userId !== userId)
-  const visible =
-    filter === 'mine' ? mine : filter === 'others' ? others : items
+  const visible = filter === 'mine' ? mine : others
 
   return (
     <section className="screen feed-screen" aria-labelledby="feed-title">
@@ -66,15 +65,14 @@ export function FeedScreen({ userId, onOpenMenu }: Props) {
       </header>
 
       <h1 id="feed-title">Feed</h1>
-      <p className="lede">Every move the team makes, as it happens.</p>
+      <p className="lede">Team moves as they happen. Your posts live under Yours.</p>
 
       {!loading && items.length > 0 ? (
         <div className="feed-filter" role="tablist" aria-label="Feed filter">
           {(
             [
-              { id: 'all', label: 'All', count: items.length },
-              { id: 'mine', label: 'Yours', count: mine.length },
               { id: 'others', label: 'Team', count: others.length },
+              { id: 'mine', label: 'Yours', count: mine.length },
             ] as const
           ).map((tab) => (
             <button
@@ -116,28 +114,9 @@ export function FeedScreen({ userId, onOpenMenu }: Props) {
           <h2>{filter === 'mine' ? 'No moves from you yet' : 'No team moves yet'}</h2>
           <p>
             {filter === 'mine'
-              ? 'Clear a challenge and your photo will show up here.'
+              ? 'Clear a challenge and your photo will show up under Yours.'
               : 'When teammates post, their moves land here.'}
           </p>
-        </div>
-      ) : filter === 'all' ? (
-        <div className="feed-sections">
-          {mine.length > 0 ? (
-            <FeedSection
-              title="Yours"
-              items={mine}
-              userId={userId}
-              onOpenPhoto={setLightbox}
-            />
-          ) : null}
-          {others.length > 0 ? (
-            <FeedSection
-              title="Team"
-              items={others}
-              userId={userId}
-              onOpenPhoto={setLightbox}
-            />
-          ) : null}
         </div>
       ) : (
         <ul className="feed-list">
@@ -169,32 +148,7 @@ export function FeedScreen({ userId, onOpenMenu }: Props) {
   )
 }
 
-type FeedFilter = 'all' | 'mine' | 'others'
-
-function FeedSection({
-  title,
-  items,
-  userId,
-  onOpenPhoto,
-}: {
-  title: string
-  items: FeedItem[]
-  userId: string
-  onOpenPhoto: (url: string) => void
-}) {
-  return (
-    <section className="feed-section" aria-label={title}>
-      <h2 className="feed-section-title">{title}</h2>
-      <ul className="feed-list">
-        {items.map((item, index) => (
-          <li key={item.attemptId} style={{ animationDelay: `${Math.min(index, 8) * 50}ms` }}>
-            <FeedCard item={item} userId={userId} onOpenPhoto={onOpenPhoto} />
-          </li>
-        ))}
-      </ul>
-    </section>
-  )
-}
+type FeedFilter = 'mine' | 'others'
 
 function FeedCard({
   item,
