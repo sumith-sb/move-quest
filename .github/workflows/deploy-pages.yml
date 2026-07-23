@@ -1,9 +1,11 @@
 name: Deploy Move Quest to GitHub Pages
 
+# Deploy when `live` updates. Enforce main-only via branch protection on `live`
+# (require PR, head branch = main). Do not use pull_request here — Pages
+# environment branch policies do not match refs/pull/* and deploy stays queued.
 on:
-  pull_request:
+  push:
     branches: [live]
-    types: [closed]
 
 permissions:
   contents: read
@@ -16,14 +18,9 @@ concurrency:
 
 jobs:
   build:
-    if: >
-      github.event.pull_request.merged == true &&
-      github.event.pull_request.head.ref == 'main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: live
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -44,9 +41,6 @@ jobs:
 
   deploy:
     needs: build
-    if: >
-      github.event.pull_request.merged == true &&
-      github.event.pull_request.head.ref == 'main'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

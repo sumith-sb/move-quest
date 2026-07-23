@@ -80,10 +80,10 @@ Add the tunnel URL to Supabase Auth redirect URLs if testing email confirmation.
 
 Production URL: **https://sumith-sb.github.io/move-quest/**
 
-Deploy runs **only** when a pull request from `main` is **merged** into `live`. Direct pushes to `live`, PRs from other branches, and closed-but-not-merged PRs do not deploy.
+Deploy runs when the **`live` branch is updated** — which in practice means merging a PR from `main` into `live`. Direct pushes to `live` should be blocked by branch protection.
 
 ```text
-main  --PR merge-->  live  --GitHub Actions-->  GitHub Pages
+main  --PR merge-->  live  --push triggers Actions-->  GitHub Pages
 ```
 
 ### One-time setup (repo admin)
@@ -93,8 +93,9 @@ main  --PR merge-->  live  --GitHub Actions-->  GitHub Pages
    - `VITE_SUPABASE_URL` — e.g. `https://neewpbkrbpdiznkbbzhl.supabase.co`
    - `VITE_SUPABASE_PUBLISHABLE_KEY` — publishable key from Supabase dashboard
 3. **Create `live`:** push a `live` branch once (e.g. from current `main` when ready to ship)
-4. **Protect `live` (recommended):** require PRs; block direct pushes so production only moves via `main` → `live` merge
-5. **Supabase Auth redirects:** Dashboard → Auth → URL Configuration
+4. **Protect `live` (recommended):** require PRs from `main`; block direct pushes
+5. **Pages environment:** Settings → Environments → `github-pages` → deployment branches must include **`live`** (PR-triggered deploys use `refs/pull/*` and queue forever)
+6. **Supabase Auth redirects:** Dashboard → Auth → URL Configuration
    - Site URL: `https://sumith-sb.github.io/move-quest/`
    - Redirect URLs: that origin plus localhost URLs for local dev
 
