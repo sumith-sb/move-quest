@@ -71,6 +71,21 @@ export interface LeaderboardEntry {
   updatedAt: string
 }
 
+/** One reaction bucket on a feed post. */
+export interface ReactionSummary {
+  emoji: string
+  count: number
+  mine: boolean
+}
+
+export interface FeedComment {
+  id: string
+  displayName: string
+  avatarUrl: string | null
+  body: string
+  createdAt: string
+}
+
 export interface FeedItem {
   attemptId: string
   userId: string
@@ -82,6 +97,8 @@ export interface FeedItem {
   photoPath: string
   photoUrl: string | null
   awardedAt: string
+  reactions: ReactionSummary[]
+  comments: FeedComment[]
 }
 
 export type Screen =
