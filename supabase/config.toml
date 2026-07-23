@@ -1,0 +1,43 @@
+# Move Quest — local Supabase CLI config
+project_id = "move-quest"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:5173"
+additional_redirect_urls = [
+  "http://127.0.0.1:5173",
+  "http://localhost:5173",
+  "https://sumith-sb.github.io/move-quest"
+]
+enable_signup = true
+enable_anonymous_sign_ins = false
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = true
+
+[storage]
+enabled = true
+file_size_limit = "1MiB"
+
+[functions.verify-photo]
+verify_jwt = true
+
+[functions.cleanup-orphans]
+verify_jwt = false

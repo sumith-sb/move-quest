@@ -1,83 +1,122 @@
 # Move Quest
 
-Mobile-first photo challenge POC. Users pick one of three random challenges, take a photo, receive points immediately, and climb a live leaderboard.
+An internal "get off your chair" app. Each day you get **three photo
+challenges** that get you up and moving. Pick one, take a photo, and it posts to
+a shared team **Feed**. Points go to the **leaderboard** (weekly reset every
+Monday).
 
-Persistence is a single JSON file plus disk uploads — no database.
+Auth and data live in **Supabase** (email/password, Postgres, private Storage).
+Photos are **demo auto-accepted** (`Looks good!`) — no AI vision in this build.
+
+## Core loop
+
+1. Sign in with your team email (domain allowlist in Supabase).
+2. Claim a display name on first login.
+3. Pick one of three random challenges (completed ones excluded). Reshuffle anytime.
+4. Take a JPEG photo and submit — accepted immediately, points awarded.
+5. Your move appears on the team feed; the leaderboard updates via Realtime.
 
 ## Stack
 
 - `web/` — Vite + React + TypeScript (mobile web UI)
-- `server/` — Express + Multer + TypeScript
-- Storage — `server/data/store.json` and `server/uploads/`
-- Verification — demo auto-accept (`Looks good!`); Ollama integration retained but disabled
-- Live board — Server-Sent Events (`/api/leaderboard/stream`)
+- Supabase Auth — email/password, domain-gated signup
+- Supabase Postgres — profiles, challenges, attempts, scores, RLS + RPCs
+- Supabase Storage — private `challenge-photos` bucket
+- Supabase Edge Function — `verify-photo` (auto-accept upload + finalize)
+- Supabase Realtime — live leaderboard / feed refresh
 
 ## Prerequisites
 
 - Node.js 20+
+- A Supabase project with migrations applied (`supabase db push`)
+- Edge Function `verify-photo` deployed with `SUPABASE_SERVICE_ROLE_KEY` secret
 
 ## Setup
 
 ```bash
 cp .env.example .env
-npm install --prefix server
+# Fill in VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY
+
 npm install --prefix web
 ```
 
-Optional env vars (defaults match `.env.example`):
+| Variable | Purpose |
+| --- | --- |
+| `VITE_SUPABASE_URL` | Supabase project URL |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase anon/publishable key |
+| `VITE_BASE_PATH` | GitHub Pages base path (default `/move-quest/`) |
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `PORT` | `3001` | API port |
+Edge secrets (via `supabase secrets set`, not in `.env`):
 
-## Run (two terminals)
+- `SUPABASE_SERVICE_ROLE_KEY` — required for `verify-photo`
+- `CLEANUP_CRON_SECRET` — optional, for `cleanup-orphans` cron
+
+## Run locally
 
 ```bash
-# terminal 1
-npm run dev:server
-
-# terminal 2
-npm run dev:web
+npm run dev
 ```
 
 Open the printed Vite URL (usually `http://127.0.0.1:5173`).
 
-### Phone on the same LAN
-
-1. Start both apps (`vite --host` already binds to the LAN).
-2. On your phone, open `http://<your-computer-lan-ip>:5173`.
-3. Vite proxies `/api` to the Node server on port `3001`.
-
-If the phone cannot reach the API, confirm your firewall allows ports `5173` and `3001`.
-
-## Reset local data
+### Deploy Edge Function
 
 ```bash
-npm run reset-data
-rm -rf server/uploads/*
+supabase functions deploy verify-photo
+supabase secrets set SUPABASE_SERVICE_ROLE_KEY=...
 ```
+
+### Public access with Cloudflared
+
+```bash
+cloudflared tunnel --url http://127.0.0.1:5173 \
+  --http-host-header localhost \
+  --no-autoupdate
+```
+
+Add the tunnel URL to Supabase Auth redirect URLs if testing email confirmation.
+
+## Deploy to GitHub Pages
+
+Production URL: **https://sumith-sb.github.io/move-quest/**
+
+Deploy runs **only** when a pull request from `main` is **merged** into `live`. Direct pushes to `live`, PRs from other branches, and closed-but-not-merged PRs do not deploy.
+
+```text
+main  --PR merge-->  live  --GitHub Actions-->  GitHub Pages
+```
+
+### One-time setup (repo admin)
+
+1. **GitHub Pages:** Settings → Pages → Source = **GitHub Actions**
+2. **Action secrets** (Settings → Secrets and variables → Actions):
+   - `VITE_SUPABASE_URL` — e.g. `https://neewpbkrbpdiznkbbzhl.supabase.co`
+   - `VITE_SUPABASE_PUBLISHABLE_KEY` — publishable key from Supabase dashboard
+3. **Create `live`:** push a `live` branch once (e.g. from current `main` when ready to ship)
+4. **Protect `live` (recommended):** require PRs; block direct pushes so production only moves via `main` → `live` merge
+5. **Supabase Auth redirects:** Dashboard → Auth → URL Configuration
+   - Site URL: `https://sumith-sb.github.io/move-quest/`
+   - Redirect URLs: that origin plus localhost URLs for local dev
+
+### Ship a release
+
+1. Merge feature work into `main` as usual
+2. Open PR: **base `live`**, **compare `main`**
+3. Merge the PR → workflow [Deploy Move Quest to GitHub Pages](.github/workflows/deploy-pages.yml) runs automatically
+
+Supabase migrations and Edge Functions are **not** deployed by this workflow — use the manual [Deploy Supabase](.github/workflows/deploy-supabase.yml) workflow when schema or functions change.
 
 ## Scripts
 
 | Command | What it does |
 | --- | --- |
-| `npm run dev:server` | API with reload |
-| `npm run dev:web` | Vite mobile UI |
-| `npm test` | Server unit + API tests |
-| `npm run build` | Typecheck server + build web |
+| `npm run dev` | Vite dev server |
+| `npm run build` | Typecheck + production build |
 | `npm run lint` | Lint web |
-
-## Product flow
-
-1. Choose a unique display name (anonymous; id stored in `localStorage`).
-2. Get three random challenges (completed ones excluded).
-3. Lock one and take a live photo. HEIC from iPhone is converted to JPEG on the server.
-4. The server accepts the photo with “Looks good!” and awards the challenge points once.
-5. Leaderboard updates live over SSE.
+| `npm run preview` | Preview production build |
 
 ## POC limits
 
-- Single-process JSON file storage (fine for demos, not multi-instance production).
-- Browser-scoped identity — clearing site data creates a new player.
-- Camera `capture` is advisory; browser and OS behavior varies.
-- Photos are not content-verified while demo auto-accept is enabled.
+- No reactions, comments, push notifications, or cooldown pacing in this Supabase build.
+- JPEG only for photo submit (Edge Function guard).
+- Fresh Supabase project — no migration from the old JSON store.

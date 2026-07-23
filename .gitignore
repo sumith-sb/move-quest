@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.DS_Store
+.env
+.env.local
+*.log
+server/data/store.json
+server/uploads/**
+!server/uploads/.gitkeep
+!server/data/store.example.json
+web/dist/
+*.tmp
+supabase/.temp/
+
+# Acid Grotesk is a licensed commercial font (Lineto) — Goodspeed-internal use
+# only. Never commit the OTFs to this public repo. See web/public/fonts/README.md.
+web/public/fonts/*.otf

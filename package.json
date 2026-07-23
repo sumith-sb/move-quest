@@ -1,0 +1,13 @@
+{
+  "name": "move-quest",
+  "private": true,
+  "version": "0.2.0",
+  "description": "Team photo-challenge app with Supabase auth, live camera verification, and social feed",
+  "scripts": {
+    "dev": "npm run dev --prefix web",
+    "dev:web": "npm run dev --prefix web",
+    "build": "npm run build --prefix web",
+    "lint": "npm run lint --prefix web",
+    "preview": "npm run preview --prefix web"
+  }
+}
