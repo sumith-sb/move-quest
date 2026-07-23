@@ -1,49 +1,54 @@
-import type { Challenge, Difficulty } from '../types'
-
-const DIFF_LABEL: Record<Difficulty, string> = {
-  easy: 'Easy',
-  medium: 'Medium',
-  hard: 'Hard',
-}
+import { Plus, Shuffle, Upload } from 'lucide-react'
+import { iconForChallenge } from '../challengeIcon'
+import { formatDuration, useCountdown } from '../countdown'
+import { cue } from '../feedback'
+import type { Challenge } from '../types'
+import { MenuButton } from './NavMenu'
+import { RoomChip } from './RoomChip'
 
 interface Props {
   challenges: Challenge[]
-  remaining: number
+  freeChallenge: Challenge | null
+  cooldownUntil: string | null
   scorePoints: number
   displayName: string
   busyId: string | null
   error: string | null
   onPick: (challenge: Challenge) => void
-  onRefresh: () => void
-  onOpenBoard: () => void
+  onReshuffle: () => void
+  onOpenMenu: () => void
+  onOpenFeed: () => void
 }
 
 export function ChallengePicker({
   challenges,
-  remaining,
+  freeChallenge,
+  cooldownUntil,
   scorePoints,
   displayName,
   busyId,
   error,
   onPick,
-  onRefresh,
-  onOpenBoard,
+  onReshuffle,
+  onOpenMenu,
+  onOpenFeed,
 }: Props) {
+  const cooldownMs = useCountdown(cooldownUntil)
+  const cooling = cooldownMs > 0
+
   return (
     <section className="screen challenges-screen" aria-labelledby="pick-title">
       <header className="topbar">
-        <div>
-          <p className="eyebrow">Today&apos;s moves</p>
-          <h1 id="pick-title">Pick one</h1>
+        <MenuButton onClick={onOpenMenu} />
+        <div className="player-chip" aria-live="polite">
+          <span className="player-name">{displayName}</span>
+          <span className="player-score">{scorePoints} pts</span>
         </div>
-        <button type="button" className="ghost-btn" onClick={onOpenBoard}>
-          Board
-        </button>
       </header>
 
-      <div className="player-chip" aria-live="polite">
-        <span className="player-name">{displayName}</span>
-        <span className="player-score">{scorePoints} pts</span>
+      <div className="screen-intro">
+        <p className="eyebrow">Today&apos;s Moves</p>
+        <h1 id="pick-title">{cooling ? 'You Moved' : 'Pick One'}</h1>
       </div>
 
       {error ? (
@@ -52,45 +57,93 @@ export function ChallengePicker({
         </p>
       ) : null}
 
-      {challenges.length === 0 ? (
+      {cooling ? (
+        <div className="cooldown-card" role="status" aria-live="polite">
+          <p className="eyebrow">Recovering</p>
+          <p className="cooldown-time">{formatDuration(cooldownMs)}</p>
+          <p className="muted">
+            Nice, you got up. Your next move unlocks when the timer ends. Go
+            cheer someone on in the feed meanwhile.
+          </p>
+          <button type="button" className="primary-btn" onClick={onOpenFeed}>
+            Open the feed
+          </button>
+        </div>
+      ) : challenges.length === 0 ? (
         <div className="empty-state">
           <h2>All clear</h2>
-          <p>You&apos;ve cleared every challenge in the catalog. Check the board.</p>
-          <button type="button" className="primary-btn" onClick={onOpenBoard}>
-            View leaderboard
+          <p>You&apos;ve cleared every challenge in the catalog. Check the feed.</p>
+          <button type="button" className="primary-btn" onClick={onOpenFeed}>
+            Open the feed
           </button>
         </div>
       ) : (
-        <ul className="challenge-list">
-          {challenges.map((challenge, index) => (
-            <li key={challenge.id} style={{ animationDelay: `${index * 80}ms` }}>
-              <button
-                type="button"
-                className={`challenge-card difficulty-${challenge.difficulty}`}
-                disabled={busyId !== null}
-                onClick={() => onPick(challenge)}
-              >
-                <div className="card-meta">
-                  <span className="diff-pill">{DIFF_LABEL[challenge.difficulty]}</span>
-                  <span className="points-stamp">+{challenge.points}</span>
-                </div>
-                <h2>{challenge.title}</h2>
-                <p>{challenge.prompt}</p>
-                <span className="card-cta">
-                  {busyId === challenge.id ? 'Locking…' : 'Shoot this'}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+        <>
+          <ul className="challenge-list">
+            {challenges.map((challenge, index) => {
+              const Icon = iconForChallenge(challenge)
+              return (
+              <li key={challenge.id} style={{ animationDelay: `${index * 60}ms` }}>
+                <button
+                  type="button"
+                  className="challenge-card"
+                  disabled={busyId !== null}
+                  onClick={() => onPick(challenge)}
+                >
+                  <span className="card-icon" aria-hidden="true">
+                    <Icon size={20} strokeWidth={2} />
+                  </span>
+                  <h2>{challenge.title}</h2>
+                  <p>{challenge.prompt}</p>
+                  <div className="card-foot">
+                    <RoomChip room={challenge.room} />
+                    <span className="card-cta">
+                      {busyId === challenge.id ? 'Locking…' : 'Shoot this'}
+                    </span>
+                  </div>
+                </button>
+              </li>
+              )
+            })}
+          </ul>
 
-      <footer className="screen-footer">
-        <p className="muted">{remaining} challenges left in the pool</p>
-        <button type="button" className="text-btn" onClick={onRefresh} disabled={busyId !== null}>
-          Shuffle three
-        </button>
-      </footer>
+          <div className="picker-actions">
+            <button
+              type="button"
+              className="reshuffle-btn"
+              onClick={() => {
+                cue.nav()
+                onReshuffle()
+              }}
+              disabled={busyId !== null}
+            >
+              <Shuffle size={16} strokeWidth={2} />
+              Reshuffle
+            </button>
+          </div>
+
+          {freeChallenge ? (
+            <button
+              type="button"
+              className="free-card"
+              disabled={busyId !== null}
+              onClick={() => onPick(freeChallenge)}
+            >
+              <span className="free-icon" aria-hidden="true">
+                <Upload size={20} strokeWidth={2} />
+              </span>
+              <span className="free-text">
+                <span className="free-title">
+                  Share anything <Plus size={14} strokeWidth={2.5} />
+                </span>
+                <span className="free-sub">
+                  Upload any photo and add a caption
+                </span>
+              </span>
+            </button>
+          ) : null}
+        </>
+      )}
     </section>
   )
 }

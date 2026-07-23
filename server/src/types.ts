@@ -1,5 +1,24 @@
 export type Difficulty = 'easy' | 'medium' | 'hard'
 
+/** Movement destinations — never the desk. Onboarding marks one as the user's
+ *  workspace and it is excluded from their draws. */
+export type Room =
+  | 'kitchen'
+  | 'window'
+  | 'outdoors'
+  | 'hallway'
+  | 'lounge'
+  | 'anywhere'
+
+export type Vibe =
+  | 'nature'
+  | 'hydrate'
+  | 'tidy'
+  | 'craft'
+  | 'social'
+  | 'fresh-air'
+  | 'movement'
+
 export type CriterionStatus = 'met' | 'not_met' | 'unclear'
 
 export type AttemptStatus =
@@ -8,6 +27,7 @@ export type AttemptStatus =
   | 'accepted'
   | 'rejected'
   | 'error'
+  | 'deleted'
 
 export interface Criterion {
   id: string
@@ -20,6 +40,8 @@ export interface Challenge {
   title: string
   prompt: string
   difficulty: Difficulty
+  room: Room
+  vibe: Vibe
   points: number
   criteria: Criterion[]
   active: boolean
@@ -29,6 +51,10 @@ export interface User {
   id: string
   displayName: string
   createdAt: string
+  /** Movement cooldown: no new challenge or post until this passes. */
+  cooldownUntil: string | null
+  /** Profile photo — populated from Google on sign-in (Phase 3); null = initials. */
+  avatarUrl: string | null
 }
 
 export interface Attempt {
@@ -36,6 +62,8 @@ export interface Attempt {
   userId: string
   challengeId: string
   status: AttemptStatus
+  caption: string | null
+  sharedToFeed: boolean
   photoPath: string | null
   photoSha256: string | null
   confidence: number | null
@@ -56,10 +84,42 @@ export interface Score {
   updatedAt: string
 }
 
+/** A curated emoji reaction on a feed post (an accepted attempt). */
+export interface Reaction {
+  id: string
+  attemptId: string
+  userId: string
+  emoji: string
+  createdAt: string
+}
+
+/** A comment on a feed post. */
+export interface Comment {
+  id: string
+  attemptId: string
+  userId: string
+  displayName: string
+  body: string
+  createdAt: string
+}
+
+/** A stored Web Push subscription, tied to a user. */
+export interface PushRecord {
+  userId: string
+  endpoint: string
+  subscription: unknown
+  createdAt: string
+}
+
 export interface StoreData {
   users: User[]
   attempts: Attempt[]
   scores: Score[]
+  reactions: Reaction[]
+  comments: Comment[]
+  pushSubscriptions: PushRecord[]
+  /** Generated once and persisted so the public key stays stable. */
+  vapid: { publicKey: string; privateKey: string } | null
 }
 
 export interface ModelCheck {
@@ -99,7 +159,42 @@ export interface PublicChallenge {
   title: string
   prompt: string
   difficulty: Difficulty
+  room: Room
+  vibe: Vibe
   points: number
+}
+
+/** One reaction bucket on a feed post: the emoji, its count, and whether the
+ *  requesting user is in it. */
+export interface ReactionSummary {
+  emoji: string
+  count: number
+  mine: boolean
+}
+
+export interface FeedComment {
+  id: string
+  displayName: string
+  avatarUrl: string | null
+  body: string
+  createdAt: string
+}
+
+/** A feed post — an accepted attempt, surfaced socially. */
+export interface FeedPost {
+  id: string
+  displayName: string
+  avatarUrl: string | null
+  isMine: boolean
+  photoUrl: string
+  caption: string | null
+  challengeTitle: string
+  room: Room
+  vibe: Vibe
+  points: number
+  createdAt: string
+  reactions: ReactionSummary[]
+  comments: FeedComment[]
 }
 
 export interface LeaderboardEntry {

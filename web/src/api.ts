@@ -1,7 +1,10 @@
 import type {
   AttemptSummary,
   Challenge,
+  FeedComment,
+  FeedPost,
   LeaderboardEntry,
+  ReactionSummary,
   Score,
   User,
   VerifyResult,
@@ -53,9 +56,12 @@ export async function fetchMe(
   return parseJson(res)
 }
 
-export async function drawChallenges(
-  userId: string,
-): Promise<{ challenges: Challenge[]; remaining: number }> {
+export async function drawChallenges(userId: string): Promise<{
+  challenges: Challenge[]
+  freeChallenge: Challenge
+  remaining: number
+  cooldownUntil: string | null
+}> {
   const res = await fetch('/api/challenges/draw', {
     headers: authHeaders(userId),
   })
@@ -81,6 +87,8 @@ export async function verifyAttempt(
   userId: string,
   attemptId: string,
   photo: File,
+  caption: string,
+  sharedToFeed: boolean,
 ): Promise<{
   attempt: AttemptSummary
   challenge: Challenge
@@ -88,6 +96,8 @@ export async function verifyAttempt(
 }> {
   const form = new FormData()
   form.append('photo', photo)
+  if (caption.trim()) form.append('caption', caption.trim())
+  form.append('sharedToFeed', sharedToFeed ? 'true' : 'false')
   const res = await fetch(`/api/attempts/${attemptId}/verify`, {
     method: 'POST',
     headers: authHeaders(userId),
@@ -100,6 +110,48 @@ export async function fetchLeaderboard(): Promise<LeaderboardEntry[]> {
   const res = await fetch('/api/leaderboard')
   const data = await parseJson<{ leaderboard: LeaderboardEntry[] }>(res)
   return data.leaderboard
+}
+
+export async function fetchFeed(userId: string): Promise<FeedPost[]> {
+  const res = await fetch('/api/feed', { headers: authHeaders(userId) })
+  const data = await parseJson<{ feed: FeedPost[] }>(res)
+  return data.feed
+}
+
+export async function reactToPost(
+  userId: string,
+  attemptId: string,
+  emoji: string,
+): Promise<ReactionSummary[]> {
+  const res = await fetch(`/api/feed/${attemptId}/react`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders(userId) },
+    body: JSON.stringify({ emoji }),
+  })
+  const data = await parseJson<{ reactions: ReactionSummary[] }>(res)
+  return data.reactions
+}
+
+export async function commentOnPost(
+  userId: string,
+  attemptId: string,
+  body: string,
+): Promise<FeedComment> {
+  const res = await fetch(`/api/feed/${attemptId}/comment`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders(userId) },
+    body: JSON.stringify({ body }),
+  })
+  const data = await parseJson<{ comment: FeedComment }>(res)
+  return data.comment
+}
+
+export async function deletePost(userId: string, attemptId: string): Promise<void> {
+  const res = await fetch(`/api/feed/${attemptId}`, {
+    method: 'DELETE',
+    headers: authHeaders(userId),
+  })
+  await parseJson(res)
 }
 
 export function subscribeLeaderboard(

@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { after, before, describe, it } from 'node:test'
-import { drawRandomChallenges, getChallenge } from './challenges.js'
+import { drawTriad, getChallenge } from './challenges.js'
 import {
   createApp,
   resetPhotoVerifier,
@@ -17,41 +17,44 @@ import {
   parseModelVerdict,
 } from './verification.js'
 
-const challenge = getChallenge('ch_green_leaf')!
+const challenge = getChallenge('ch_plant')!
 
 function validPassVerdict(): ModelVerdict {
   return {
     decision: 'pass',
     confidence: 0.91,
-    reason: 'Green leaf clearly visible on a plant.',
+    reason: 'Green plant clearly visible.',
     checks: [
       {
-        criterion_id: 'leaf_visible',
+        criterion_id: 'plant_visible',
         status: 'met',
         confidence: 0.93,
-        evidence: 'Green leaf in foreground',
+        evidence: 'Leafy plant in foreground',
       },
       {
-        criterion_id: 'plant_context',
+        criterion_id: 'plant_real',
         status: 'met',
         confidence: 0.9,
-        evidence: 'Attached to a living plant',
+        evidence: 'A living potted plant',
       },
     ],
   }
 }
 
-describe('drawRandomChallenges', () => {
-  it('returns three distinct challenges', () => {
-    const drawn = drawRandomChallenges([], 3, () => 0.42)
+describe('drawTriad', () => {
+  it('returns one easy, one medium, and one hard challenge', () => {
+    const drawn = drawTriad([], () => 0.42)
     assert.equal(drawn.length, 3)
-    assert.equal(new Set(drawn.map((c) => c.id)).size, 3)
+    assert.deepEqual(
+      drawn.map((c) => c.difficulty),
+      ['easy', 'medium', 'hard'],
+    )
   })
 
   it('excludes completed challenge ids', () => {
-    const all = drawRandomChallenges([], 99)
-    const exclude = all.slice(0, 5).map((c) => c.id)
-    const drawn = drawRandomChallenges(exclude, 3)
+    const first = drawTriad([], () => 0)
+    const exclude = first.map((c) => c.id)
+    const drawn = drawTriad(exclude, () => 0)
     for (const c of drawn) {
       assert.equal(exclude.includes(c.id), false)
     }
@@ -131,6 +134,8 @@ describe('json store', () => {
         id: 'u1',
         displayName: 'Tester',
         createdAt: '2026-01-01T00:00:00.000Z',
+        cooldownUntil: null,
+        avatarUrl: null,
       })
     })
     const store = await readStore()
@@ -146,12 +151,16 @@ describe('json store', () => {
         id: 'u1',
         displayName: 'Scorer',
         createdAt: '2026-01-01T00:00:00.000Z',
+        cooldownUntil: null,
+        avatarUrl: null,
       })
       store.attempts.push({
         id: 'a1',
         userId: 'u1',
-        challengeId: 'ch_green_leaf',
+        challengeId: 'ch_plant',
         status: 'accepted',
+        caption: null,
+        sharedToFeed: true,
         photoPath: null,
         photoSha256: null,
         confidence: 0.9,
@@ -213,7 +222,7 @@ describe('api verify flow', () => {
         'Content-Type': 'application/json',
         'x-user-id': user.id,
       },
-      body: JSON.stringify({ challengeId: 'ch_green_leaf' }),
+      body: JSON.stringify({ challengeId: 'ch_plant' }),
     })
     const selected = (await selectRes.json()) as { attempt: { id: string } }
 
@@ -247,7 +256,7 @@ describe('api verify flow', () => {
         'Content-Type': 'application/json',
         'x-user-id': user.id,
       },
-      body: JSON.stringify({ challengeId: 'ch_green_leaf' }),
+      body: JSON.stringify({ challengeId: 'ch_plant' }),
     })
     assert.equal(selectRes.status, 201)
     const selected = (await selectRes.json()) as { attempt: { id: string } }
@@ -374,7 +383,7 @@ describe('api verify flow', () => {
         'Content-Type': 'application/json',
         'x-user-id': user.id,
       },
-      body: JSON.stringify({ challengeId: 'ch_sky_blue' }),
+      body: JSON.stringify({ challengeId: 'ch_window_view' }),
     })
     const selected = (await selectRes.json()) as { attempt: { id: string } }
 

@@ -6,12 +6,15 @@ import { pathToFileURL } from 'node:url'
 import cors from 'cors'
 import express, { type Request, type Response } from 'express'
 import multer from 'multer'
+import webpush from 'web-push'
 import {
-  drawRandomChallenges,
+  FREE_CHALLENGE,
+  drawTriad,
   getChallenge,
+  remainingCount,
   toPublicChallenge,
 } from './challenges.js'
-import { rankLeaderboard, rebuildScore } from './leaderboard.js'
+import { rebuildScore, weeklyLeaderboard, weeklyScore } from './leaderboard.js'
 import { type PhotoVerifier } from './ollama.js'
 import {
   extensionForMime,
@@ -21,10 +24,33 @@ import {
   sniffImageMime,
 } from './image.js'
 import { UPLOADS_DIR, ensureDataDirs, readStore, updateStore } from './store.js'
-import type { Attempt, LeaderboardEntry, User } from './types.js'
+import type {
+  Attempt,
+  FeedPost,
+  LeaderboardEntry,
+  StoreData,
+  User,
+} from './types.js'
 
 const PORT = Number(process.env.PORT ?? 3001)
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+
+/** Movement cooldown — after a post, no new challenge or post until it passes.
+ *  This is the pacing mechanic: get up roughly twice an hour, not every minute. */
+const COOLDOWN_MINUTES = Number(process.env.COOLDOWN_MINUTES ?? 30)
+const COOLDOWN_MS = Math.max(0, COOLDOWN_MINUTES) * 60 * 1000
+
+const MAX_CAPTION = 140
+
+/** Accept any single emoji (Slack-style), not a fixed set. */
+function isEmoji(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    value.length > 0 &&
+    [...value].length <= 8 &&
+    /\p{Extended_Pictographic}/u.test(value)
+  )
+}
 
 type SseClient = {
   id: string
@@ -65,6 +91,71 @@ function nowIso(): string {
   return new Date().toISOString()
 }
 
+function cooldownRemainingMs(user: Pick<User, 'cooldownUntil'>): number {
+  if (!user.cooldownUntil) return 0
+  return Math.max(0, new Date(user.cooldownUntil).getTime() - Date.now())
+}
+
+/** Build the shared feed from shared, accepted attempts — newest first — with
+ *  reaction buckets (any emoji used, most-used first) and comments, from the
+ *  viewer's perspective. */
+function buildFeed(store: StoreData, viewerId: string): FeedPost[] {
+  const posts: FeedPost[] = []
+  const avatarOf = new Map(store.users.map((u) => [u.id, u.avatarUrl]))
+  const accepted = store.attempts
+    .filter((a) => a.status === 'accepted' && a.sharedToFeed !== false && a.photoPath)
+    .sort((a, b) => (a.awardedAt ?? '') < (b.awardedAt ?? '') ? 1 : -1)
+
+  for (const attempt of accepted) {
+    const author = store.users.find((u) => u.id === attempt.userId)
+    const challenge = getChallenge(attempt.challengeId)
+    if (!author || !challenge) continue
+
+    // Group reactions by emoji, in the order they first appeared, most first.
+    const byEmoji = new Map<string, { count: number; mine: boolean; first: string }>()
+    for (const r of store.reactions.filter((r) => r.attemptId === attempt.id)) {
+      const bucket = byEmoji.get(r.emoji) ?? { count: 0, mine: false, first: r.createdAt }
+      bucket.count += 1
+      if (r.userId === viewerId) bucket.mine = true
+      if (r.createdAt < bucket.first) bucket.first = r.createdAt
+      byEmoji.set(r.emoji, bucket)
+    }
+    const reactions = [...byEmoji.entries()]
+      .map(([emoji, b]) => ({ emoji, count: b.count, mine: b.mine, first: b.first }))
+      .sort((a, b) => b.count - a.count || (a.first < b.first ? -1 : 1))
+      .map(({ emoji, count, mine }) => ({ emoji, count, mine }))
+
+    const comments = store.comments
+      .filter((c) => c.attemptId === attempt.id)
+      .sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1))
+      .map((c) => ({
+        id: c.id,
+        displayName: c.displayName,
+        avatarUrl: avatarOf.get(c.userId) ?? null,
+        body: c.body,
+        createdAt: c.createdAt,
+      }))
+
+    posts.push({
+      id: attempt.id,
+      displayName: author.displayName,
+      avatarUrl: author.avatarUrl,
+      isMine: attempt.userId === viewerId,
+      photoUrl: `/api/feed/${attempt.id}/photo`,
+      caption: attempt.caption,
+      challengeTitle: challenge.title,
+      room: challenge.room,
+      vibe: challenge.vibe,
+      points: attempt.pointsAwarded,
+      createdAt: attempt.awardedAt ?? attempt.updatedAt,
+      reactions,
+      comments,
+    })
+  }
+
+  return posts
+}
+
 function broadcastLeaderboard(entries: LeaderboardEntry[]): void {
   const payload = `event: leaderboard\ndata: ${JSON.stringify(entries)}\n\n`
   for (const client of sseClients.values()) {
@@ -74,7 +165,46 @@ function broadcastLeaderboard(entries: LeaderboardEntry[]): void {
 
 async function pushLeaderboard(): Promise<void> {
   const store = await readStore()
-  broadcastLeaderboard(rankLeaderboard(store.scores))
+  broadcastLeaderboard(weeklyLeaderboard(store))
+}
+
+// --- Web Push -------------------------------------------------------------
+let pushReady = false
+
+/** Generate + persist VAPID keys once, then configure web-push. */
+async function ensurePush(): Promise<void> {
+  if (pushReady) return
+  const keys = await updateStore((store) => {
+    if (!store.vapid) store.vapid = webpush.generateVAPIDKeys()
+    return store.vapid
+  })
+  webpush.setVapidDetails('mailto:team@goodspeed.studio', keys.publicKey, keys.privateKey)
+  pushReady = true
+}
+
+/** Push a notification to everyone except the author; prune dead subscriptions. */
+async function sendFeedPush(authorId: string, title: string, body: string): Promise<void> {
+  if (!pushReady) return
+  const store = await readStore()
+  const targets = store.pushSubscriptions.filter((s) => s.userId !== authorId)
+  if (targets.length === 0) return
+  const payload = JSON.stringify({ title, body, url: '/' })
+  const dead: string[] = []
+  await Promise.all(
+    targets.map(async (t) => {
+      try {
+        await webpush.sendNotification(t.subscription as webpush.PushSubscription, payload)
+      } catch (err) {
+        const code = (err as { statusCode?: number }).statusCode
+        if (code === 404 || code === 410) dead.push(t.endpoint)
+      }
+    }),
+  )
+  if (dead.length > 0) {
+    await updateStore((s) => {
+      s.pushSubscriptions = s.pushSubscriptions.filter((x) => !dead.includes(x.endpoint))
+    })
+  }
 }
 
 function getUserId(req: Request): string | null {
@@ -139,6 +269,8 @@ export function createApp() {
           id: randomUUID(),
           displayName,
           createdAt: nowIso(),
+          cooldownUntil: null,
+          avatarUrl: null,
         }
         store.users.push(created)
         store.scores.push({
@@ -172,13 +304,7 @@ export function createApp() {
       res.status(404).json({ error: { code: 'NOT_FOUND', message: 'User not found' } })
       return
     }
-    const score = store.scores.find((s) => s.userId === userId) ?? {
-      userId,
-      displayName: user.displayName,
-      totalPoints: 0,
-      acceptedCount: 0,
-      updatedAt: user.createdAt,
-    }
+    const score = weeklyScore(store, userId, user.displayName)
     res.json({ user, score })
   })
 
@@ -197,10 +323,13 @@ export function createApp() {
         .filter((a) => a.userId === userId && a.status === 'accepted')
         .map((a) => a.challengeId),
     )
-    const drawn = drawRandomChallenges(completed, 3)
+    const drawn = drawTriad(completed)
     res.json({
       challenges: drawn.map(toPublicChallenge),
-      remaining: drawRandomChallenges(completed, 99).length,
+      freeChallenge: toPublicChallenge(FREE_CHALLENGE),
+      remaining: remainingCount(completed),
+      cooldownUntil:
+        cooldownRemainingMs(user) > 0 ? user.cooldownUntil : null,
     })
   })
 
@@ -225,27 +354,37 @@ export function createApp() {
           err.name = 'USER_NOT_FOUND'
           throw err
         }
+        if (cooldownRemainingMs(user) > 0) {
+          const err = new Error('COOLDOWN')
+          err.name = 'COOLDOWN'
+          throw err
+        }
+        // The free post is repeatable — every one is a brand-new attempt.
+        const isFree = challengeId === FREE_CHALLENGE.id
+
         const alreadyAccepted = store.attempts.some(
           (a) =>
             a.userId === userId &&
             a.challengeId === challengeId &&
             a.status === 'accepted',
         )
-        if (alreadyAccepted) {
+        if (alreadyAccepted && !isFree) {
           const err = new Error('ALREADY_COMPLETED')
           err.name = 'ALREADY_COMPLETED'
           throw err
         }
 
         // Reuse open attempt for retry, else create a new selected attempt.
-        const open = store.attempts.find(
-          (a) =>
-            a.userId === userId &&
-            a.challengeId === challengeId &&
-            (a.status === 'selected' ||
-              a.status === 'rejected' ||
-              a.status === 'error'),
-        )
+        const open = isFree
+          ? undefined
+          : store.attempts.find(
+              (a) =>
+                a.userId === userId &&
+                a.challengeId === challengeId &&
+                (a.status === 'selected' ||
+                  a.status === 'rejected' ||
+                  a.status === 'error'),
+            )
         if (open) {
           open.status = 'selected'
           open.updatedAt = nowIso()
@@ -257,6 +396,8 @@ export function createApp() {
           userId,
           challengeId,
           status: 'selected',
+          caption: null,
+          sharedToFeed: true,
           photoPath: null,
           photoSha256: null,
           confidence: null,
@@ -294,6 +435,15 @@ export function createApp() {
         })
         return
       }
+      if (name === 'COOLDOWN') {
+        res.status(409).json({
+          error: {
+            code: 'COOLDOWN',
+            message: 'You just moved — take a break before the next one',
+          },
+        })
+        return
+      }
       throw err
     }
   })
@@ -314,6 +464,12 @@ export function createApp() {
       if (!userId) return
 
       const attemptId = req.params.attemptId
+      const rawCaption =
+        typeof req.body?.caption === 'string' ? req.body.caption.trim() : ''
+      const caption = rawCaption ? rawCaption.slice(0, MAX_CAPTION) : null
+      // Multer delivers form fields as strings; default to shared unless opted out.
+      const sharedToFeed = req.body?.sharedToFeed !== 'false'
+
       const file = req.file
       if (!file) {
         res.status(400).json({
@@ -377,6 +533,13 @@ export function createApp() {
       if (!challenge) {
         res.status(404).json({
           error: { code: 'NOT_FOUND', message: 'Challenge not found' },
+        })
+        return
+      }
+
+      if (attemptPeek.challengeId === FREE_CHALLENGE.id && !caption) {
+        res.status(400).json({
+          error: { code: 'CAPTION_REQUIRED', message: 'A caption is required for a free post' },
         })
         return
       }
@@ -461,6 +624,9 @@ export function createApp() {
         }
 
         attempt.status = 'processing'
+        attempt.caption = caption
+        // Free posts always go to the feed so they stay socially verifiable.
+        attempt.sharedToFeed = attempt.challengeId === FREE_CHALLENGE.id ? true : sharedToFeed
         attempt.photoPath = relPath
         attempt.photoSha256 = sha256
         attempt.updatedAt = nowIso()
@@ -548,6 +714,8 @@ export function createApp() {
             attempt.pointsAwarded = challenge.points
             attempt.awardedAt = nowIso()
             attempt.updatedAt = attempt.awardedAt
+            // The move is done — start the cooldown before the next one.
+            user.cooldownUntil = new Date(Date.now() + COOLDOWN_MS).toISOString()
             rebuildScore(store, userId, user.displayName, attempt.awardedAt)
             return {
               attempt,
@@ -585,6 +753,12 @@ export function createApp() {
 
         if (finalized.result.status === 'accepted') {
           await pushLeaderboard()
+          if (finalized.attempt.sharedToFeed !== false) {
+            const store = await readStore()
+            const name =
+              store.users.find((u) => u.id === userId)?.displayName ?? 'A teammate'
+            void sendFeedPush(userId, `${name} posted a move`, challenge.title)
+          }
         }
 
         res.json({
@@ -632,7 +806,7 @@ export function createApp() {
 
   app.get('/api/leaderboard', async (_req, res) => {
     const store = await readStore()
-    res.json({ leaderboard: rankLeaderboard(store.scores) })
+    res.json({ leaderboard: weeklyLeaderboard(store) })
   })
 
   app.get('/api/leaderboard/stream', async (req, res) => {
@@ -646,7 +820,7 @@ export function createApp() {
 
     const store = await readStore()
     res.write(
-      `event: leaderboard\ndata: ${JSON.stringify(rankLeaderboard(store.scores))}\n\n`,
+      `event: leaderboard\ndata: ${JSON.stringify(weeklyLeaderboard(store))}\n\n`,
     )
 
     const heartbeat = setInterval(() => {
@@ -657,6 +831,192 @@ export function createApp() {
       clearInterval(heartbeat)
       sseClients.delete(clientId)
     })
+  })
+
+  // --- Feed ----------------------------------------------------------------
+  app.get('/api/feed', async (req, res) => {
+    const userId = requireUserId(req, res)
+    if (!userId) return
+    const store = await readStore()
+    res.json({ feed: buildFeed(store, userId) })
+  })
+
+  // Public (within-app) photo for a posted challenge. Only accepted attempts
+  // with a stored photo are served, so unposted uploads never leak.
+  app.get('/api/feed/:attemptId/photo', async (req, res) => {
+    const store = await readStore()
+    const attempt = store.attempts.find((a) => a.id === req.params.attemptId)
+    if (!attempt || attempt.status !== 'accepted' || !attempt.photoPath) {
+      res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Photo not found' } })
+      return
+    }
+    const abs = path.join(UPLOADS_DIR, attempt.photoPath)
+    createReadStream(abs)
+      .on('error', () => {
+        res.status(404).end()
+      })
+      .pipe(res)
+  })
+
+  app.post('/api/feed/:attemptId/react', async (req, res) => {
+    const userId = requireUserId(req, res)
+    if (!userId) return
+    const emoji = req.body?.emoji
+    if (!isEmoji(emoji)) {
+      res.status(400).json({
+        error: { code: 'INVALID_EMOJI', message: 'Reaction must be a single emoji' },
+      })
+      return
+    }
+
+    try {
+      await updateStore((store) => {
+        const attempt = store.attempts.find((a) => a.id === req.params.attemptId)
+        if (!attempt || attempt.status !== 'accepted') {
+          const err = new Error('NOT_FOUND')
+          err.name = 'NOT_FOUND'
+          throw err
+        }
+        if (attempt.userId === userId) {
+          const err = new Error('OWN_POST')
+          err.name = 'OWN_POST'
+          throw err
+        }
+        const existing = store.reactions.findIndex(
+          (r) =>
+            r.attemptId === attempt.id && r.userId === userId && r.emoji === emoji,
+        )
+        if (existing >= 0) {
+          store.reactions.splice(existing, 1) // toggle off
+        } else {
+          store.reactions.push({
+            id: randomUUID(),
+            attemptId: attempt.id,
+            userId,
+            emoji,
+            createdAt: nowIso(),
+          })
+        }
+      })
+      const store = await readStore()
+      const post = buildFeed(store, userId).find((p) => p.id === req.params.attemptId)
+      // Reactions earn the author points — refresh the weekly board live.
+      await pushLeaderboard()
+      res.json({ reactions: post?.reactions ?? [] })
+    } catch (err) {
+      const name = (err as Error).name
+      if (name === 'OWN_POST') {
+        res.status(403).json({
+          error: { code: 'OWN_POST', message: 'You can’t react to your own post' },
+        })
+        return
+      }
+      if (name === 'NOT_FOUND') {
+        res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Post not found' } })
+        return
+      }
+      throw err
+    }
+  })
+
+  app.post('/api/feed/:attemptId/comment', async (req, res) => {
+    const userId = requireUserId(req, res)
+    if (!userId) return
+    const body = typeof req.body?.body === 'string' ? req.body.body.trim() : ''
+    if (body.length < 1 || body.length > 280) {
+      res.status(400).json({
+        error: { code: 'INVALID_COMMENT', message: 'Comment must be 1–280 characters' },
+      })
+      return
+    }
+
+    try {
+      const comment = await updateStore((store) => {
+        const attempt = store.attempts.find((a) => a.id === req.params.attemptId)
+        const user = store.users.find((u) => u.id === userId)
+        if (!attempt || attempt.status !== 'accepted' || !user) {
+          const err = new Error('NOT_FOUND')
+          err.name = 'NOT_FOUND'
+          throw err
+        }
+        const created = {
+          id: randomUUID(),
+          attemptId: attempt.id,
+          userId,
+          displayName: user.displayName,
+          body,
+          createdAt: nowIso(),
+        }
+        store.comments.push(created)
+        return created
+      })
+      res.status(201).json({
+        comment: {
+          id: comment.id,
+          displayName: comment.displayName,
+          body: comment.body,
+          createdAt: comment.createdAt,
+        },
+      })
+    } catch (err) {
+      if ((err as Error).name === 'NOT_FOUND') {
+        res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Post not found' } })
+        return
+      }
+      throw err
+    }
+  })
+
+  // --- Web Push subscription ------------------------------------------------
+  app.get('/api/push/key', async (_req, res) => {
+    await ensurePush()
+    const store = await readStore()
+    res.json({ publicKey: store.vapid?.publicKey ?? null })
+  })
+
+  app.post('/api/push/subscribe', async (req, res) => {
+    const userId = requireUserId(req, res)
+    if (!userId) return
+    const sub = req.body?.subscription
+    const endpoint = typeof sub?.endpoint === 'string' ? sub.endpoint : ''
+    if (!endpoint) {
+      res.status(400).json({ error: { code: 'INVALID', message: 'Missing subscription' } })
+      return
+    }
+    await updateStore((store) => {
+      store.pushSubscriptions = store.pushSubscriptions.filter((s) => s.endpoint !== endpoint)
+      store.pushSubscriptions.push({ userId, endpoint, subscription: sub, createdAt: nowIso() })
+    })
+    res.status(201).json({ ok: true })
+  })
+
+  // Delete your own feed post — drops it from the feed and its points.
+  app.delete('/api/feed/:attemptId', async (req, res) => {
+    const userId = requireUserId(req, res)
+    if (!userId) return
+    try {
+      await updateStore((store) => {
+        const attempt = store.attempts.find((a) => a.id === req.params.attemptId)
+        if (!attempt || attempt.userId !== userId || attempt.status !== 'accepted') {
+          const err = new Error('NOT_FOUND')
+          err.name = 'NOT_FOUND'
+          throw err
+        }
+        attempt.status = 'deleted'
+        attempt.updatedAt = nowIso()
+        // Drop reactions/comments on the removed post.
+        store.reactions = store.reactions.filter((r) => r.attemptId !== attempt.id)
+        store.comments = store.comments.filter((c) => c.attemptId !== attempt.id)
+      })
+      await pushLeaderboard()
+      res.json({ ok: true })
+    } catch (err) {
+      if ((err as Error).name === 'NOT_FOUND') {
+        res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Post not found' } })
+        return
+      }
+      throw err
+    }
   })
 
   // Private photo access for debugging owner only — not listed on leaderboard.
@@ -694,6 +1054,7 @@ export function createApp() {
 
 export async function startServer(port = PORT) {
   await ensureDataDirs()
+  await ensurePush().catch((err) => console.warn('push init failed', err))
   const app = createApp()
   return app.listen(port, () => {
     console.log(`Move Quest API on http://127.0.0.1:${port}`)

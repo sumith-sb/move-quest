@@ -1,8 +1,40 @@
 # Move Quest
 
-Mobile-first photo challenge POC. Users pick one of three random challenges, take a photo, receive points immediately, and climb a live leaderboard.
+An internal "get off your chair" app. Each day you get **three photo
+challenges — one Easy, one Medium, one Hard** — that get you up and moving to a
+specific spot (the kitchen, a window, outside…). Pick one, take a live photo,
+and it posts to a shared team **Feed** where colleagues react and comment. After
+each move a **cooldown** paces you so it's roughly once an hour, not every
+minute — no reshuffling, no spamming.
 
-Persistence is a single JSON file plus disk uploads — no database.
+Persistence is a single JSON file plus disk uploads — no database. (SQLite is
+the intended upgrade once it goes multi-instance; deferred here to avoid native
+modules on bleeding-edge Node.)
+
+## Core loop
+
+1. Pick one of three moves from a pool of **1,000** curated and generated ones.
+   The three are secretly an effort ladder (quick / another room / step
+   outside), but difficulty and points are **hidden** so people pick what suits
+   them, not what scores most. Reshuffle anytime, or use the **free post** to
+   upload any photo with a caption.
+2. Take a **live photo** (camera only for challenges; free posts allow an
+   upload), add a caption, and choose whether to share to the feed (free posts
+   always post).
+3. It's accepted and **posted to the feed**; points are awarded and revealed as
+   the reward (10 / 20 / 30 by difficulty, 10 for a free post).
+4. A cooldown (`COOLDOWN_MINUTES`, default 30) locks new moves until it passes.
+   Opt into a **bell reminder** in Settings to get pinged the moment it ends.
+5. The team reacts with **any emoji** (Slack-style, but not on your own posts)
+   and comments; **every reaction your post receives earns you +2 points**. The
+   leaderboard is **weekly** (resets every Monday), highlights the top three,
+   and updates live over SSE.
+
+UI uses Lucide icons throughout and a multi-step visual onboarding.
+
+> Photos are verified socially by the feed rather than by a model — the demo
+> auto-accepts. Google sign-in (domain-locked) is the planned next phase; the
+> app currently uses an anonymous `localStorage` identity.
 
 ## Stack
 

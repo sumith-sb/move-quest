@@ -10,3 +10,7 @@ server/uploads/**
 !server/data/store.example.json
 web/dist/
 *.tmp
+
+# Acid Grotesk is a licensed commercial font (Lineto) — Goodspeed-internal use
+# only. Never commit the OTFs to this public repo. See web/public/fonts/README.md.
+web/public/fonts/*.otf
