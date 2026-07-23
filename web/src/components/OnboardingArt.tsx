@@ -31,14 +31,14 @@ const MOVES: {
     title: 'Take the stairs',
     prompt: 'Walk a flight of stairs and photograph the top.',
     difficulty: 'Medium',
-    points: 25,
+    points: 20,
   },
   {
     room: 'outdoors',
     title: 'Step outside',
     prompt: 'Head out and photograph the sky, a tree, or the street.',
     difficulty: 'Hard',
-    points: 50,
+    points: 30,
   },
 ]
 
@@ -72,8 +72,8 @@ function MovesArt() {
 
 const TIERS = [
   { label: 'Easy', points: '+10', cls: 'easy' },
-  { label: 'Medium', points: '+25', cls: 'medium' },
-  { label: 'Hard', points: '+50', cls: 'hard' },
+  { label: 'Medium', points: '+20', cls: 'medium' },
+  { label: 'Hard', points: '+30', cls: 'hard' },
 ]
 
 function PickArt() {
