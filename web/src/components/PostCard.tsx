@@ -1,4 +1,4 @@
-import { Send, SmilePlus } from 'lucide-react'
+import { Send, SmilePlus, X } from 'lucide-react'
 import {
   useEffect,
   useRef,
@@ -6,6 +6,7 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from 'react'
+import { createPortal } from 'react-dom'
 import { commentOnPost, reactToPost } from '../api'
 import { iconForChallenge } from '../challengeIcon'
 import { cue } from '../feedback'
@@ -47,6 +48,7 @@ export function PostCard({ item, userId, onOpenProfile, onEngagementChange }: Pr
   const [commentsExpanded, setCommentsExpanded] = useState(false)
   const [reactError, setReactError] = useState<string | null>(null)
   const [commentError, setCommentError] = useState<string | null>(null)
+  const [lightbox, setLightbox] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const TaskIcon = iconForChallenge({
     title: item.challengeTitle,
@@ -183,16 +185,42 @@ export function PostCard({ item, userId, onOpenProfile, onEngagementChange }: Pr
 
       {item.photoUrl ? (
         <div className="feed-photo-wrap">
-          <div className="feed-photo">
+          <button
+            type="button"
+            className="feed-photo"
+            onClick={() => setLightbox(true)}
+            aria-label="View full size"
+          >
             <img
               src={item.photoUrl}
               alt={`${item.displayName}: ${item.challengeTitle}`}
               loading="lazy"
             />
-          </div>
+          </button>
           <span className="feed-points">+{item.pointsAwarded}</span>
         </div>
       ) : null}
+
+      {lightbox && item.photoUrl
+        ? createPortal(
+            <div className="lightbox" onClick={() => setLightbox(false)}>
+              <button
+                type="button"
+                className="lightbox-close"
+                aria-label="Close"
+                onClick={() => setLightbox(false)}
+              >
+                <X size={24} />
+              </button>
+              <img
+                src={item.photoUrl}
+                alt="Full size"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>,
+            document.body,
+          )
+        : null}
 
       <div className="feed-body">
         <div className="reaction-bar">
