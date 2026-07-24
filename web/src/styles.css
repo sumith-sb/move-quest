@@ -907,6 +907,19 @@ h2 {
   margin-top: 0;
 }
 
+/* Reward tag: how many points this challenge is worth. */
+.card-points {
+  flex-shrink: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--gs-green-900);
+  background: var(--gs-sand);
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-pill);
+  font-variant-numeric: tabular-nums;
+}
+
 /* --- Cooldown ------------------------------------------------------------- */
 .cooldown-card {
   display: grid;
@@ -1067,6 +1080,7 @@ h2 {
 .feed-meta {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.32rem;
   font-size: 0.8rem;
   color: var(--fg-subtle);
@@ -1081,10 +1095,6 @@ h2 {
 .feed-meta-task {
   color: var(--fg-muted);
   font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 46%;
 }
 
 .feed-meta-sep {
@@ -1200,6 +1210,10 @@ h2 {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
+  /* Positioning context for the emoji picker, so it anchors to the bar (card
+     width) rather than the add button — which can be pushed off-screen when
+     many reactions are present. */
+  position: relative;
 }
 
 .reaction {
@@ -1236,7 +1250,8 @@ h2 {
 }
 
 .reaction-add {
-  position: relative;
+  /* Not positioned, so the picker inside it anchors to .reaction-bar. */
+  position: static;
 }
 
 .reaction.add {
@@ -1313,6 +1328,13 @@ h2 {
   gap: 0.4rem;
 }
 
+/* When expanded, cap height so a long thread doesn't fill the screen. */
+.comment-list.expanded {
+  max-height: 260px;
+  overflow-y: auto;
+  padding-right: 0.2rem;
+}
+
 .comment-list li {
   font-size: 0.92rem;
   line-height: 1.45;
@@ -1327,6 +1349,24 @@ h2 {
 
 .comment-body {
   color: var(--fg-muted);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.comment-toggle {
+  justify-self: start;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--fg-subtle);
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.comment-toggle:active {
+  opacity: 0.6;
 }
 
 .feed-comments {
@@ -1339,32 +1379,38 @@ h2 {
 .comment-form {
   display: flex;
   gap: 0.5rem;
-  align-items: center;
+  align-items: flex-end;
 }
 
-.comment-form input {
+.comment-form textarea {
   flex: 1;
   min-inline-size: 0;
   min-height: 44px;
-  border-radius: var(--radius-pill);
+  max-height: 140px;
+  resize: none;
+  overflow-y: hidden;
+  border-radius: var(--radius-md);
   border: 1.5px solid var(--line);
   background: var(--bg);
   color: var(--fg);
-  padding: 0.5rem 0.95rem;
+  font: inherit;
+  line-height: 1.4;
+  padding: 0.6rem 0.95rem;
   transition: border-color var(--dur-fast) var(--ease-out);
 }
 
-.comment-form input::placeholder {
+.comment-form textarea::placeholder {
   color: var(--fg-subtle);
 }
 
-.comment-form input:focus {
+.comment-form textarea:focus {
   outline: none;
   border-color: var(--gs-green);
 }
 
 .comment-form .ghost-btn {
   min-height: 44px;
+  flex-shrink: 0;
 }
 
 /* --- Avatar --------------------------------------------------------------- */
@@ -1791,6 +1837,8 @@ h2 {
 
 .comment-text {
   padding-top: 0.1rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .comment-send {
@@ -2574,4 +2622,337 @@ h2 {
   .text-btn:active {
     transform: none;
   }
+}
+
+/* --- Redesign: round icon buttons, bottom nav, profile, board tabs ------- */
+
+.icon-round-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line);
+  background: var(--bg-elevated);
+  color: var(--fg);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.icon-round-btn:active {
+  transform: scale(0.94);
+}
+
+.topbar-title {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 1rem;
+  margin: 0;
+  text-align: center;
+  flex: 1;
+}
+
+/* Home top bar: pinned to the top, auto-hides on scroll down.
+   Styled like the bottom nav — a full-bleed translucent bar with a hairline
+   border and even padding so the trophy button isn't flush to any edge. */
+.feed-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  /* Bleed out to the app-shell edges (counteract its top + side padding). */
+  margin-top: calc(-1 * max(1.25rem, env(safe-area-inset-top)));
+  margin-left: calc(-1 * max(1.25rem, env(safe-area-inset-left)));
+  margin-right: calc(-1 * max(1.25rem, env(safe-area-inset-right)));
+  padding:
+    calc(0.7rem + env(safe-area-inset-top))
+    max(1.25rem, env(safe-area-inset-right))
+    0.7rem
+    max(1.25rem, env(safe-area-inset-left));
+  background: color-mix(in srgb, var(--bg-elevated) 92%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
+  transition: transform var(--dur-base) var(--ease-out);
+}
+
+.feed-topbar.hidden {
+  transform: translateY(-140%);
+}
+
+.topbar-spacer {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+}
+
+/* Bottom navigation ------------------------------------------------------- */
+/* The bar spans the full viewport width; its items stay aligned with the
+   centered app column via the inner wrapper. */
+.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  z-index: 90;
+  padding: 0.5rem 0 calc(0.5rem + env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--bg-elevated) 92%, transparent);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--line);
+}
+
+.bottom-nav-inner {
+  width: min(100%, 440px);
+  margin: 0 auto;
+  padding-inline: 0.75rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.25rem;
+}
+
+.bottom-nav-item {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  min-height: 52px;
+  padding: 0.35rem 0.25rem;
+  border: none;
+  background: transparent;
+  color: var(--fg-subtle);
+  border-radius: var(--radius-sm);
+  transition: color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.bottom-nav-item:active {
+  transform: scale(0.94);
+}
+
+.bottom-nav-item.active {
+  color: var(--fg);
+}
+
+.bottom-nav-label {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 0.72rem;
+}
+
+/* Give nav-bearing screens room above the fixed bar. */
+.feed-screen,
+.challenges-screen,
+.profile-screen,
+.board-screen,
+.settings-screen {
+  padding-bottom: calc(76px + env(safe-area-inset-bottom));
+}
+
+/* Clickable feed author -------------------------------------------------- */
+.feed-author-link {
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.feed-author-name {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.feed-author-name:active {
+  opacity: 0.6;
+}
+
+/* Board tabs -------------------------------------------------------------- */
+.board-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.3rem;
+  padding: 0.3rem;
+  background: var(--bg-sunken);
+  border-radius: var(--radius-md);
+}
+
+.board-tab {
+  min-height: 40px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-muted);
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: transform var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.board-tab.active {
+  background: var(--bg-elevated);
+  color: var(--fg);
+  box-shadow: var(--shadow-sm);
+}
+
+.board-tab:not(.active):active {
+  transform: scale(0.97);
+}
+
+/* Profile page ------------------------------------------------------------ */
+.profile-hero {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0 0.25rem;
+}
+
+.profile-hero-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.35rem;
+}
+
+.profile-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  width: 100%;
+  gap: 0.5rem;
+  padding: 0.9rem 0.5rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.profile-stat {
+  display: grid;
+  justify-items: center;
+  gap: 0.2rem;
+}
+
+.profile-stat + .profile-stat {
+  border-left: 1px solid var(--line);
+}
+
+.profile-stat-num {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.15rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.3rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+}
+
+.profile-stat-unit {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--fg-muted);
+}
+
+.profile-stat-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--fg-subtle);
+}
+
+.profile-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.3rem;
+}
+
+.profile-grid-cell {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  padding: 0;
+  border: none;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-sunken);
+  cursor: pointer;
+}
+
+.profile-grid-cell img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.profile-grid-cell:active {
+  transform: scale(0.98);
+}
+
+.profile-grid-points {
+  position: absolute;
+  right: 0.35rem;
+  bottom: 0.35rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-pill);
+  background: rgba(36, 47, 40, 0.62);
+  color: var(--gs-beige);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.72rem;
+}
+
+.profile-grid-empty {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Floating post modal ----------------------------------------------------- */
+.post-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(36, 47, 40, 0.42);
+  animation: fade var(--dur-fast) var(--ease-out) both;
+}
+
+.post-modal-inner {
+  position: relative;
+  width: min(100%, 420px);
+  max-height: 88dvh;
+  overflow-y: auto;
+  border-radius: var(--radius-lg);
+  animation: rise var(--dur-base) var(--ease-out) both;
+}
+
+.post-modal-close {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  z-index: 2;
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: rgba(36, 47, 40, 0.62);
+  color: var(--gs-beige);
+  cursor: pointer;
 }

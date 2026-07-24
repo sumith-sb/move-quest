@@ -101,15 +101,25 @@ export interface FeedItem {
   comments: FeedComment[]
 }
 
+/** Header stats for a member's profile page. */
+export interface UserProfile {
+  userId: string
+  displayName: string
+  uploads: number
+  weekPoints: number
+  allTimePoints: number
+}
+
 export type Screen =
   | 'boot'
   | 'auth'
   | 'confirm'
   | 'set-password'
-  | 'profile'
+  | 'profile-setup'
   | 'challenges'
   | 'capture'
   | 'result'
   | 'leaderboard'
   | 'feed'
+  | 'profile'
   | 'settings'

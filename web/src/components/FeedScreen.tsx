@@ -1,33 +1,40 @@
-import { Send, SmilePlus, X } from 'lucide-react'
-import { useEffect, useState, type FormEvent } from 'react'
-import { createPortal } from 'react-dom'
-import {
-  commentOnPost,
-  fetchFeed,
-  reactToPost,
-  subscribeAcceptedAttempts,
-} from '../api'
-import { iconForChallenge } from '../challengeIcon'
-import { cue } from '../feedback'
-import { timeAgo } from '../labels'
-import type { FeedComment, FeedItem, ReactionSummary } from '../types'
-import { Avatar } from './Avatar'
-import { EmojiPicker } from './EmojiPicker'
+import { Trophy } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { fetchFeed, subscribeAcceptedAttempts } from '../api'
+import type { FeedItem } from '../types'
 import { Logo } from './Logo'
-import { MenuButton } from './NavMenu'
+import { PostCard } from './PostCard'
 import { SkeletonFeedCard } from './Skeleton'
 
 interface Props {
   userId: string
-  onOpenMenu: () => void
+  onOpenLeaderboard: () => void
+  onOpenProfile: (userId: string) => void
 }
 
-export function FeedScreen({ userId, onOpenMenu }: Props) {
+export function FeedScreen({ userId, onOpenLeaderboard, onOpenProfile }: Props) {
   const [items, setItems] = useState<FeedItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [lightbox, setLightbox] = useState<string | null>(null)
-  const [filter, setFilter] = useState<FeedFilter>('others')
+  const [barHidden, setBarHidden] = useState(false)
+
+  // Auto-hide the top bar: hide on scroll down, reveal on scroll up.
+  useEffect(() => {
+    let last = window.scrollY
+    function onScroll() {
+      const y = window.scrollY
+      if (y < 12) {
+        setBarHidden(false)
+      } else if (y > last + 5) {
+        setBarHidden(true)
+      } else if (y < last - 5) {
+        setBarHidden(false)
+      }
+      last = y
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -53,45 +60,22 @@ export function FeedScreen({ userId, onOpenMenu }: Props) {
     }
   }, [])
 
-  const mine = items.filter((i) => i.userId === userId)
-  const others = items.filter((i) => i.userId !== userId)
-  const visible = filter === 'mine' ? mine : others
-
   return (
     <section className="screen feed-screen" aria-labelledby="feed-title">
-      <header className="topbar">
-        <MenuButton onClick={onOpenMenu} />
+      <header className={`topbar feed-topbar ${barHidden ? 'hidden' : ''}`}>
         <Logo height={28} />
+        <button
+          type="button"
+          className="icon-round-btn"
+          onClick={onOpenLeaderboard}
+          aria-label="Open leaderboard"
+        >
+          <Trophy size={20} strokeWidth={2} />
+        </button>
       </header>
 
-      <h1 id="feed-title">Feed</h1>
-      <p className="lede">Team moves as they happen. Your posts live under Yours.</p>
-
-      {!loading && items.length > 0 ? (
-        <div className="feed-filter" role="tablist" aria-label="Feed filter">
-          {(
-            [
-              { id: 'others', label: 'Team', count: others.length },
-              { id: 'mine', label: 'Yours', count: mine.length },
-            ] as const
-          ).map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={filter === tab.id}
-              className={`feed-filter-opt ${filter === tab.id ? 'active' : ''}`}
-              onClick={() => {
-                cue.toggle()
-                setFilter(tab.id)
-              }}
-            >
-              {tab.label}
-              <span className="feed-filter-count">{tab.count}</span>
-            </button>
-          ))}
-        </div>
-      ) : null}
+      <h1 id="feed-title">Home</h1>
+      <p className="lede">Every move the team makes, as it happens.</p>
 
       {error ? (
         <p className="banner error" role="alert">
@@ -109,236 +93,15 @@ export function FeedScreen({ userId, onOpenMenu }: Props) {
           <h2>Nothing here yet</h2>
           <p>Be the first to get up and post a move.</p>
         </div>
-      ) : visible.length === 0 ? (
-        <div className="empty-state">
-          <h2>{filter === 'mine' ? 'No moves from you yet' : 'No team moves yet'}</h2>
-          <p>
-            {filter === 'mine'
-              ? 'Clear a challenge and your photo will show up under Yours.'
-              : 'When teammates post, their moves land here.'}
-          </p>
-        </div>
       ) : (
         <ul className="feed-list">
-          {visible.map((item, index) => (
+          {items.map((item, index) => (
             <li key={item.attemptId} style={{ animationDelay: `${Math.min(index, 8) * 50}ms` }}>
-              <FeedCard item={item} userId={userId} onOpenPhoto={setLightbox} />
+              <PostCard item={item} userId={userId} onOpenProfile={onOpenProfile} />
             </li>
           ))}
         </ul>
       )}
-
-      {lightbox
-        ? createPortal(
-            <div className="lightbox" onClick={() => setLightbox(null)}>
-              <button
-                type="button"
-                className="lightbox-close"
-                aria-label="Close"
-                onClick={() => setLightbox(null)}
-              >
-                <X size={24} />
-              </button>
-              <img src={lightbox} alt="Full size" onClick={(e) => e.stopPropagation()} />
-            </div>,
-            document.body,
-          )
-        : null}
     </section>
-  )
-}
-
-type FeedFilter = 'mine' | 'others'
-
-function FeedCard({
-  item,
-  userId,
-  onOpenPhoto,
-}: {
-  item: FeedItem
-  userId: string
-  onOpenPhoto: (url: string) => void
-}) {
-  const isMine = item.userId === userId
-  const [reactions, setReactions] = useState<ReactionSummary[]>(item.reactions)
-  const [comments, setComments] = useState<FeedComment[]>(item.comments)
-  const [draft, setDraft] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [pickerOpen, setPickerOpen] = useState(false)
-  const [reactError, setReactError] = useState<string | null>(null)
-  const TaskIcon = iconForChallenge({
-    title: item.challengeTitle,
-    prompt: item.challengePrompt,
-  })
-
-  useEffect(() => {
-    setReactions(item.reactions)
-    setComments(item.comments)
-  }, [item.reactions, item.comments])
-
-  async function react(emoji: string) {
-    if (isMine) return
-    const previous = reactions
-    cue.react()
-    setPickerOpen(false)
-    setReactError(null)
-    setReactions((cur) => {
-      const existing = cur.find((r) => r.emoji === emoji)
-      if (existing) {
-        return cur
-          .map((r) =>
-            r.emoji === emoji
-              ? { ...r, mine: !r.mine, count: r.count + (r.mine ? -1 : 1) }
-              : r,
-          )
-          .filter((r) => r.count > 0)
-      }
-      return [...cur, { emoji, count: 1, mine: true }]
-    })
-    try {
-      const authoritative = await reactToPost(item.attemptId, emoji)
-      setReactions(authoritative)
-    } catch (err) {
-      setReactions(previous)
-      setReactError(err instanceof Error ? err.message : 'Could not react')
-    }
-  }
-
-  async function submitComment(e: FormEvent) {
-    e.preventDefault()
-    const body = draft.trim()
-    if (!body || busy) return
-    setBusy(true)
-    try {
-      const comment = await commentOnPost(item.attemptId, body)
-      cue.tick()
-      setComments((cur) => [...cur, comment])
-      setDraft('')
-    } catch {
-      // Keep the draft so the user can retry.
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <article className={`feed-card ${isMine ? 'is-mine' : ''}`}>
-      <header className="feed-head">
-        <Avatar name={item.displayName} size={40} />
-        <div className="feed-id">
-          <span className="feed-author">
-            {item.displayName}
-            {isMine ? <span className="feed-you"> · you</span> : null}
-          </span>
-          <span className="feed-meta">
-            <TaskIcon size={13} strokeWidth={2} aria-hidden="true" />
-            <span className="feed-meta-task">{item.challengeTitle}</span>
-            <span className="feed-meta-sep">·</span>
-            {timeAgo(item.awardedAt)}
-          </span>
-        </div>
-      </header>
-
-      {item.photoUrl ? (
-        <div className="feed-photo-wrap">
-          <button
-            type="button"
-            className="feed-photo"
-            onClick={() => onOpenPhoto(item.photoUrl!)}
-            aria-label="View full size"
-          >
-            <img
-              src={item.photoUrl}
-              alt={`${item.displayName}: ${item.challengeTitle}`}
-              loading="lazy"
-            />
-          </button>
-          <span className="feed-points">+{item.pointsAwarded}</span>
-        </div>
-      ) : null}
-
-      <div className="feed-body">
-        <div className="reaction-bar">
-          {reactions.map((r) =>
-            isMine ? (
-              <span key={r.emoji} className={`reaction static ${r.mine ? 'mine' : ''}`}>
-                <span aria-hidden="true">{r.emoji}</span>
-                <span className="reaction-count">{r.count}</span>
-              </span>
-            ) : (
-              <button
-                key={r.emoji}
-                type="button"
-                className={`reaction ${r.mine ? 'mine' : ''}`}
-                aria-pressed={r.mine}
-                onClick={() => void react(r.emoji)}
-              >
-                <span aria-hidden="true">{r.emoji}</span>
-                <span className="reaction-count">{r.count}</span>
-              </button>
-            ),
-          )}
-          {!isMine ? (
-            <div className="reaction-add">
-              <button
-                type="button"
-                className="reaction add"
-                aria-label="Add a reaction"
-                aria-expanded={pickerOpen}
-                onClick={() => setPickerOpen((v) => !v)}
-              >
-                <SmilePlus size={18} strokeWidth={2} />
-              </button>
-              {pickerOpen ? (
-                <EmojiPicker onPick={(e) => void react(e)} onClose={() => setPickerOpen(false)} />
-              ) : null}
-            </div>
-          ) : reactions.length === 0 ? (
-            <p className="muted reaction-empty">Teammates can react to your move</p>
-          ) : null}
-        </div>
-        {reactError ? (
-          <p className="banner error" role="alert">
-            {reactError}
-          </p>
-        ) : null}
-
-        <div className="feed-comments">
-          {comments.length > 0 ? (
-            <ul className="comment-list">
-              {comments.map((c) => (
-                <li key={c.id}>
-                  <Avatar name={c.displayName} avatarUrl={c.avatarUrl} size={26} />
-                  <span className="comment-text">
-                    <span className="comment-author">{c.displayName}</span>
-                    <span className="comment-body">{c.body}</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-
-          <form className="comment-form" onSubmit={submitComment}>
-            <input
-              type="text"
-              maxLength={280}
-              placeholder="Add a comment…"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              disabled={busy}
-              aria-label={`Comment on ${item.displayName}'s move`}
-            />
-            <button
-              type="submit"
-              className="ghost-btn icon-btn comment-send"
-              disabled={busy || draft.trim().length < 1}
-              aria-label="Post comment"
-            >
-              <Send size={16} strokeWidth={2} />
-            </button>
-          </form>
-        </div>
-      </div>
-    </article>
   )
 }

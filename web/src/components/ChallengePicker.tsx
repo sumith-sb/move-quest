@@ -2,7 +2,6 @@ import { Shuffle } from 'lucide-react'
 import { iconForChallenge } from '../challengeIcon'
 import { cue } from '../feedback'
 import type { Challenge } from '../types'
-import { MenuButton } from './NavMenu'
 
 interface Props {
   challenges: Challenge[]
@@ -13,7 +12,6 @@ interface Props {
   error: string | null
   onPick: (challenge: Challenge) => void
   onReshuffle: () => void
-  onOpenMenu: () => void
   onOpenFeed: () => void
 }
 
@@ -26,13 +24,11 @@ export function ChallengePicker({
   error,
   onPick,
   onReshuffle,
-  onOpenMenu,
   onOpenFeed,
 }: Props) {
   return (
     <section className="screen challenges-screen" aria-labelledby="pick-title">
       <header className="topbar">
-        <MenuButton onClick={onOpenMenu} />
         <div className="player-chip" aria-live="polite">
           <span className="player-name">{displayName}</span>
           <span className="player-score">{scorePoints} pts</span>
@@ -83,6 +79,7 @@ export function ChallengePicker({
                       <span className="card-cta">
                         {busyId === challenge.id ? 'Locking…' : 'Shoot this'}
                       </span>
+                      <span className="card-points">+{challenge.points} pts</span>
                     </div>
                   </button>
                 </li>
