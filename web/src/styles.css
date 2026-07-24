@@ -907,6 +907,19 @@ h2 {
   margin-top: 0;
 }
 
+/* Reward tag: how many points this challenge is worth. */
+.card-points {
+  flex-shrink: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--gs-green-900);
+  background: var(--gs-sand);
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-pill);
+  font-variant-numeric: tabular-nums;
+}
+
 /* --- Cooldown ------------------------------------------------------------- */
 .cooldown-card {
   display: grid;
@@ -1197,6 +1210,10 @@ h2 {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
+  /* Positioning context for the emoji picker, so it anchors to the bar (card
+     width) rather than the add button — which can be pushed off-screen when
+     many reactions are present. */
+  position: relative;
 }
 
 .reaction {
@@ -1233,7 +1250,8 @@ h2 {
 }
 
 .reaction-add {
-  position: relative;
+  /* Not positioned, so the picker inside it anchors to .reaction-bar. */
+  position: static;
 }
 
 .reaction.add {

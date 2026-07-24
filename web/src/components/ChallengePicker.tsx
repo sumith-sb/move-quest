@@ -79,6 +79,7 @@ export function ChallengePicker({
                       <span className="card-cta">
                         {busyId === challenge.id ? 'Locking…' : 'Shoot this'}
                       </span>
+                      <span className="card-points">+{challenge.points} pts</span>
                     </div>
                   </button>
                 </li>
