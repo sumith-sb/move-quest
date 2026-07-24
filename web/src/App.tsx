@@ -13,12 +13,13 @@ import {
 } from './api'
 import { cue, setFeedbackEnabled } from './feedback'
 import { AuthScreen } from './components/AuthScreen'
+import { BottomNav } from './components/BottomNav'
 import { CaptureScreen } from './components/CaptureScreen'
 import { ChallengePicker } from './components/ChallengePicker'
 import { ConfirmScreen } from './components/ConfirmScreen'
 import { FeedScreen } from './components/FeedScreen'
 import { LeaderboardScreen } from './components/LeaderboardScreen'
-import { NavMenu } from './components/NavMenu'
+import { ProfilePage } from './components/ProfilePage'
 import { ProfileSetup } from './components/ProfileSetup'
 import { ResultScreen } from './components/ResultScreen'
 import { SetPasswordScreen } from './components/SetPasswordScreen'
@@ -35,6 +36,46 @@ import type {
   VerifyResult,
 } from './types'
 
+// Persist the active tab so a page refresh returns you where you were,
+// rather than always dropping onto Challenges.
+const NAV_KEY = 'mq.nav'
+const TAB_SCREENS: Screen[] = [
+  'feed',
+  'challenges',
+  'profile',
+  'leaderboard',
+  'settings',
+]
+
+function loadNav(): { screen: Screen; viewingUserId: string | null } | null {
+  try {
+    const raw = localStorage.getItem(NAV_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as { screen: Screen; viewingUserId: string | null }
+    if (!TAB_SCREENS.includes(parsed.screen)) return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function saveNav(screen: Screen, viewingUserId: string | null): void {
+  try {
+    if (!TAB_SCREENS.includes(screen)) return
+    localStorage.setItem(NAV_KEY, JSON.stringify({ screen, viewingUserId }))
+  } catch {
+    // ignore storage failures (private mode, quota)
+  }
+}
+
+function clearNav(): void {
+  try {
+    localStorage.removeItem(NAV_KEY)
+  } catch {
+    // ignore
+  }
+}
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>('boot')
   const [user, setUser] = useState<User | null>(null)
@@ -50,7 +91,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [pendingEmail, setPendingEmail] = useState<string | null>(null)
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [viewingUserId, setViewingUserId] = useState<string | null>(null)
   const [settings, setSettings] = useState<Settings>(loadSettings)
 
   const refreshDraw = useCallback(async () => {
@@ -64,11 +105,15 @@ export default function App() {
       setUser(profile)
       setScore(nextScore)
       if (!profile.displayName) {
-        setScreen('profile')
+        setScreen('profile-setup')
         return
       }
-      await refreshDraw()
-      setScreen('challenges')
+      const saved = loadNav()
+      const target: Screen = saved?.screen ?? 'challenges'
+      if (saved) setViewingUserId(saved.viewingUserId)
+      // ChallengePicker needs the draw loaded before it renders.
+      if (target === 'challenges') await refreshDraw()
+      setScreen(target)
     },
     [refreshDraw],
   )
@@ -151,22 +196,29 @@ export default function App() {
     setFeedbackEnabled(settings.uiFeedback)
   }, [settings.uiFeedback])
 
+  // Remember the active tab (and viewed profile) across refreshes.
+  useEffect(() => {
+    saveNav(screen, viewingUserId)
+  }, [screen, viewingUserId])
+
   function updateSettings(next: Settings) {
     setSettings(next)
     saveSettings(next)
   }
 
-  function openMenu() {
-    cue.tick()
-    setMenuOpen(true)
+  function openProfile(profileUserId: string) {
+    cue.nav()
+    setError(null)
+    setViewingUserId(profileUserId)
+    setScreen('profile')
   }
 
   function navigate(next: Screen) {
-    cue.nav()
-    setMenuOpen(false)
     setError(null)
     if (next === 'challenges') {
       void goChallenges()
+    } else if (next === 'profile') {
+      if (user) openProfile(user.id)
     } else {
       setScreen(next)
     }
@@ -332,9 +384,10 @@ export default function App() {
 
   async function handleSignOut() {
     await signOut()
+    clearNav()
     setUser(null)
     setScore(null)
-    setMenuOpen(false)
+    setViewingUserId(null)
     setScreen('auth')
   }
 
@@ -379,7 +432,7 @@ export default function App() {
         />
       ) : null}
 
-      {screen === 'profile' ? (
+      {screen === 'profile-setup' ? (
         <ProfileSetup
           busy={busy}
           error={error}
@@ -398,7 +451,6 @@ export default function App() {
           error={error}
           onPick={handlePick}
           onReshuffle={() => void goChallenges()}
-          onOpenMenu={openMenu}
           onOpenFeed={() => setScreen('feed')}
         />
       ) : null}
@@ -429,11 +481,24 @@ export default function App() {
       ) : null}
 
       {screen === 'leaderboard' && user ? (
-        <LeaderboardScreen userId={user.id} onOpenMenu={openMenu} />
+        <LeaderboardScreen userId={user.id} onBack={() => setScreen('feed')} />
       ) : null}
 
       {screen === 'feed' && user ? (
-        <FeedScreen userId={user.id} onOpenMenu={openMenu} />
+        <FeedScreen
+          userId={user.id}
+          onOpenLeaderboard={() => setScreen('leaderboard')}
+          onOpenProfile={openProfile}
+        />
+      ) : null}
+
+      {screen === 'profile' && user ? (
+        <ProfilePage
+          profileUserId={viewingUserId ?? user.id}
+          currentUserId={user.id}
+          onBack={() => setScreen('feed')}
+          onOpenSettings={() => setScreen('settings')}
+        />
       ) : null}
 
       {screen === 'settings' && user ? (
@@ -441,18 +506,13 @@ export default function App() {
           user={user}
           settings={settings}
           onChange={updateSettings}
-          onOpenMenu={openMenu}
+          onBack={() => openProfile(user.id)}
           onSignOut={() => void handleSignOut()}
         />
       ) : null}
 
-      {user && !['auth', 'confirm', 'set-password', 'profile', 'boot'].includes(screen) ? (
-        <NavMenu
-          open={menuOpen}
-          current={screen}
-          onNavigate={navigate}
-          onClose={() => setMenuOpen(false)}
-        />
+      {user && ['feed', 'challenges', 'profile', 'leaderboard', 'settings'].includes(screen) ? (
+        <BottomNav current={screen} onNavigate={navigate} />
       ) : null}
     </div>
   )

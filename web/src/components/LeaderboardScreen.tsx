@@ -1,15 +1,17 @@
-import { Clock } from 'lucide-react'
+import { ChevronLeft, Clock } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { fetchLeaderboard, subscribeScores } from '../api'
+import { fetchLeaderboard, fetchWeeklyLeaderboard, subscribeScores } from '../api'
+import { cue } from '../feedback'
 import type { LeaderboardEntry } from '../types'
 import { Logo } from './Logo'
-import { MenuButton } from './NavMenu'
 import { Skeleton, SkeletonBoardRow } from './Skeleton'
 
 interface Props {
   userId: string
-  onOpenMenu: () => void
+  onBack: () => void
 }
+
+type BoardTab = 'week' | 'all'
 
 function msUntilReset(now = Date.now()): number {
   const d = new Date(now)
@@ -30,7 +32,8 @@ function formatReset(ms: number): string {
 
 const MEDAL = ['rank-gold', 'rank-silver', 'rank-bronze']
 
-export function LeaderboardScreen({ userId, onOpenMenu }: Props) {
+export function LeaderboardScreen({ userId, onBack }: Props) {
+  const [tab, setTab] = useState<BoardTab>('week')
   const [entries, setEntries] = useState<LeaderboardEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -43,10 +46,15 @@ export function LeaderboardScreen({ userId, onOpenMenu }: Props) {
 
   useEffect(() => {
     let cancelled = false
+    const fetcher = tab === 'week' ? fetchWeeklyLeaderboard : fetchLeaderboard
+    setLoading(true)
     async function load() {
       try {
-        const data = await fetchLeaderboard()
-        if (!cancelled) setEntries(data)
+        const data = await fetcher()
+        if (!cancelled) {
+          setEntries(data)
+          setError(null)
+        }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load board')
       } finally {
@@ -55,7 +63,7 @@ export function LeaderboardScreen({ userId, onOpenMenu }: Props) {
     }
     void load()
     const unsubscribe = subscribeScores(() => {
-      void fetchLeaderboard().then((data) => {
+      void fetcher().then((data) => {
         if (!cancelled) {
           setEntries(data)
           setLoading(false)
@@ -67,7 +75,7 @@ export function LeaderboardScreen({ userId, onOpenMenu }: Props) {
       cancelled = true
       unsubscribe()
     }
-  }, [])
+  }, [tab])
 
   const MIN_ROWS = 5
   const top = entries.slice(0, 3)
@@ -77,17 +85,51 @@ export function LeaderboardScreen({ userId, onOpenMenu }: Props) {
   return (
     <section className="screen board-screen" aria-labelledby="board-title">
       <header className="topbar">
-        <MenuButton onClick={onOpenMenu} />
+        <button type="button" className="icon-round-btn" onClick={onBack} aria-label="Back">
+          <ChevronLeft size={22} strokeWidth={2} />
+        </button>
         <Logo height={28} />
       </header>
 
-      <h1 id="board-title">This Week</h1>
+      <h1 id="board-title">Leaderboard</h1>
+
+      <div className="board-tabs" role="tablist" aria-label="Leaderboard range">
+        {(
+          [
+            { id: 'week', label: 'This Week' },
+            { id: 'all', label: 'All-time' },
+          ] as const
+        ).map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.id}
+            className={`board-tab ${tab === t.id ? 'active' : ''}`}
+            onClick={() => {
+              if (tab !== t.id) {
+                cue.toggle()
+                setTab(t.id)
+              }
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
       <div className="board-subhead">
-        <p className="lede">Points from accepted moves. Top three get the podium.</p>
-        <span className="reset-chip">
-          <Clock size={14} strokeWidth={2} aria-hidden="true" />
-          Resets in {formatReset(resetMs)}
-        </span>
+        <p className="lede">
+          {tab === 'week'
+            ? 'Points from moves this week. Top three get the podium.'
+            : 'All-time points across every move and reaction.'}
+        </p>
+        {tab === 'week' ? (
+          <span className="reset-chip">
+            <Clock size={14} strokeWidth={2} aria-hidden="true" />
+            Resets in {formatReset(resetMs)}
+          </span>
+        ) : null}
       </div>
 
       {error ? (
@@ -113,6 +155,15 @@ export function LeaderboardScreen({ userId, onOpenMenu }: Props) {
             <SkeletonBoardRow />
           </div>
         </>
+      ) : entries.length === 0 ? (
+        <div className="empty-state">
+          <h2>{tab === 'week' ? 'No moves yet this week' : 'No moves yet'}</h2>
+          <p>
+            {tab === 'week'
+              ? 'Clear a challenge to put yourself on this week’s board.'
+              : 'Points land here as the team completes challenges.'}
+          </p>
+        </div>
       ) : (
         <div className="board-stack">
           {top.length > 0 ? (
