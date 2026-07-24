@@ -15,10 +15,13 @@
 grant select on public.profiles to authenticated;
 grant select on public.scores to authenticated;
 grant select on public.challenges to authenticated;
--- attempts: read via RLS policy (own or accepted+visible). The storage
--- signing policy for challenge-photos also subqueries attempts, so the
--- authenticated role needs table-level SELECT for signed URLs to work.
-grant select on public.attempts to authenticated;
+-- attempts: the challenge-photos storage signing policy subqueries attempts
+-- (photo_path / status / visibility) while creating signed URLs, so the
+-- authenticated role needs SELECT on just those columns. Deliberately NOT a
+-- full-row grant — that would expose verification internals (model_output,
+-- confidence, reason, model_name, photo_sha256) via PostgREST. Feed/profile
+-- reads all go through SECURITY DEFINER RPCs, which don't need this grant.
+grant select (photo_path, status, visibility) on public.attempts to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- get_weekly_leaderboard — rank by challenge points earned since Monday.
