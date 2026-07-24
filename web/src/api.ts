@@ -8,6 +8,7 @@ import type {
   ReactionSummary,
   Score,
   User,
+  UserProfile,
   VerifyResult,
 } from './types'
 
@@ -255,60 +256,62 @@ export async function verifyAttempt(
   return (body as { result: VerifyResult }).result
 }
 
+function mapLeaderboardRows(data: unknown): LeaderboardEntry[] {
+  return ((data ?? []) as Array<{
+    rank: number
+    user_id: string
+    display_name: string
+    total_points: number
+    accepted_count: number
+    updated_at: string
+  }>).map((row) => ({
+    rank: Number(row.rank),
+    userId: row.user_id,
+    displayName: row.display_name,
+    totalPoints: row.total_points,
+    acceptedCount: row.accepted_count,
+    updatedAt: row.updated_at,
+  }))
+}
+
+/** All-time leaderboard (cumulative scores). */
 export async function fetchLeaderboard(): Promise<LeaderboardEntry[]> {
   const { data, error } = await supabase.rpc('get_leaderboard', { p_limit: 100 })
   if (error) throw new Error(error.message)
-  return (data ?? []).map(
-    (row: {
-      rank: number
-      user_id: string
-      display_name: string
-      total_points: number
-      accepted_count: number
-      updated_at: string
-    }) => ({
-      rank: Number(row.rank),
-      userId: row.user_id,
-      displayName: row.display_name,
-      totalPoints: row.total_points,
-      acceptedCount: row.accepted_count,
-      updatedAt: row.updated_at,
-    }),
-  )
+  return mapLeaderboardRows(data)
 }
 
-export async function fetchFeed(options?: {
-  beforeAwardedAt?: string
-  beforeId?: string
-  limit?: number
-}): Promise<FeedItem[]> {
-  const { data, error } = await supabase.rpc('get_feed', {
-    p_limit: options?.limit ?? 20,
-    p_before_awarded_at: options?.beforeAwardedAt ?? null,
-    p_before_id: options?.beforeId ?? null,
+/** Weekly leaderboard — challenge points earned since Monday. */
+export async function fetchWeeklyLeaderboard(): Promise<LeaderboardEntry[]> {
+  const { data, error } = await supabase.rpc('get_weekly_leaderboard', {
+    p_limit: 100,
   })
   if (error) throw new Error(error.message)
+  return mapLeaderboardRows(data)
+}
 
-  const rows = (data ?? []) as Array<{
-    attempt_id: string
-    user_id: string
+interface FeedRow {
+  attempt_id: string
+  user_id: string
+  display_name: string
+  challenge_id: string
+  challenge_title: string
+  challenge_prompt: string
+  points_awarded: number
+  photo_path: string
+  awarded_at: string
+  reactions?: Array<{ emoji: string; count: number; mine: boolean }> | null
+  comments?: Array<{
+    id: string
     display_name: string
-    challenge_id: string
-    challenge_title: string
-    challenge_prompt: string
-    points_awarded: number
-    photo_path: string
-    awarded_at: string
-    reactions?: Array<{ emoji: string; count: number; mine: boolean }> | null
-    comments?: Array<{
-      id: string
-      display_name: string
-      avatar_url: string | null
-      body: string
-      created_at: string
-    }> | null
-  }>
+    avatar_url: string | null
+    body: string
+    created_at: string
+  }> | null
+}
 
+/** Sign photo paths and shape feed rows (from get_feed / get_user_posts) into FeedItems. */
+async function hydrateFeedRows(rows: FeedRow[]): Promise<FeedItem[]> {
   const paths = rows.map((r) => r.photo_path).filter(Boolean)
   let urlMap = new Map<string, string>()
   if (paths.length > 0) {
@@ -346,6 +349,60 @@ export async function fetchFeed(options?: {
       createdAt: c.created_at,
     })),
   }))
+}
+
+export async function fetchFeed(options?: {
+  beforeAwardedAt?: string
+  beforeId?: string
+  limit?: number
+}): Promise<FeedItem[]> {
+  const { data, error } = await supabase.rpc('get_feed', {
+    p_limit: options?.limit ?? 20,
+    p_before_awarded_at: options?.beforeAwardedAt ?? null,
+    p_before_id: options?.beforeId ?? null,
+  })
+  if (error) throw new Error(error.message)
+  return hydrateFeedRows((data ?? []) as FeedRow[])
+}
+
+/** All accepted posts by one user, newest first (their profile gallery). */
+export async function fetchUserPosts(
+  userId: string,
+  options?: { beforeAwardedAt?: string; beforeId?: string; limit?: number },
+): Promise<FeedItem[]> {
+  const { data, error } = await supabase.rpc('get_user_posts', {
+    p_user_id: userId,
+    p_limit: options?.limit ?? 30,
+    p_before_awarded_at: options?.beforeAwardedAt ?? null,
+    p_before_id: options?.beforeId ?? null,
+  })
+  if (error) throw new Error(error.message)
+  return hydrateFeedRows((data ?? []) as FeedRow[])
+}
+
+/** Header stats for a member's profile page (own or another user's). */
+export async function fetchUserProfile(userId: string): Promise<UserProfile> {
+  const { data, error } = await supabase.rpc('get_user_profile', {
+    p_user_id: userId,
+  })
+  if (error) throw new Error(error.message)
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | {
+        user_id: string
+        display_name: string
+        uploads: number
+        week_points: number
+        all_time_points: number
+      }
+    | undefined
+  if (!row) throw new Error('Profile not found')
+  return {
+    userId: row.user_id,
+    displayName: row.display_name,
+    uploads: Number(row.uploads),
+    weekPoints: Number(row.week_points),
+    allTimePoints: Number(row.all_time_points),
+  }
 }
 
 export async function reactToPost(

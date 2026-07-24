@@ -1,5 +1,6 @@
 import {
   CalendarClock,
+  ChevronLeft,
   Footprints,
   Heart,
   LogOut,
@@ -13,7 +14,6 @@ import { type Settings, type ThemeChoice } from '../settings'
 import type { User } from '../types'
 import { Avatar } from './Avatar'
 import { Logo } from './Logo'
-import { MenuButton } from './NavMenu'
 import { Toggle } from './Toggle'
 
 const THEMES: { value: ThemeChoice; label: string; icon: LucideIcon }[] = [
@@ -26,7 +26,7 @@ interface Props {
   user: User
   settings: Settings
   onChange: (settings: Settings) => void
-  onOpenMenu: () => void
+  onBack: () => void
   onSignOut: () => void
 }
 
@@ -34,13 +34,20 @@ export function SettingsScreen({
   user,
   settings,
   onChange,
-  onOpenMenu,
+  onBack,
   onSignOut,
 }: Props) {
   return (
     <section className="screen settings-screen" aria-labelledby="settings-title">
       <header className="topbar">
-        <MenuButton onClick={onOpenMenu} />
+        <button
+          type="button"
+          className="icon-round-btn"
+          onClick={onBack}
+          aria-label="Back"
+        >
+          <ChevronLeft size={22} strokeWidth={2} />
+        </button>
         <Logo height={28} />
       </header>
 
