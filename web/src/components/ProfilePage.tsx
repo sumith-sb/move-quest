@@ -174,7 +174,15 @@ export function ProfilePage({
                 >
                   <X size={22} />
                 </button>
-                <PostCard item={openPost} userId={currentUserId} />
+                <PostCard
+                  item={openPost}
+                  userId={currentUserId}
+                  onEngagementChange={(attemptId, patch) =>
+                    setPosts((cur) =>
+                      cur.map((p) => (p.attemptId === attemptId ? { ...p, ...patch } : p)),
+                    )
+                  }
+                />
               </div>
             </div>,
             document.body,

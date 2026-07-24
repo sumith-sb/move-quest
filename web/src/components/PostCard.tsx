@@ -19,6 +19,15 @@ interface Props {
   userId: string
   /** When provided, the author name/avatar links to that user's profile. */
   onOpenProfile?: (userId: string) => void
+  /**
+   * Called when this post's reactions/comments change, so a parent list can
+   * keep its own copy fresh (e.g. the profile grid behind a post modal —
+   * otherwise reopening the modal shows stale engagement).
+   */
+  onEngagementChange?: (
+    attemptId: string,
+    patch: { reactions?: ReactionSummary[]; comments?: FeedComment[] },
+  ) => void
 }
 
 /** How many recent comments to show before the list is expanded. */
@@ -28,7 +37,7 @@ const COMMENT_PREVIEW = 2
  * A single feed post with reactions + comments. Shared by the Home feed
  * (inline list) and the profile page (inside a floating post modal).
  */
-export function PostCard({ item, userId, onOpenProfile }: Props) {
+export function PostCard({ item, userId, onOpenProfile, onEngagementChange }: Props) {
   const isMine = item.userId === userId
   const [reactions, setReactions] = useState<ReactionSummary[]>(item.reactions)
   const [comments, setComments] = useState<FeedComment[]>(item.comments)
@@ -37,6 +46,7 @@ export function PostCard({ item, userId, onOpenProfile }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [commentsExpanded, setCommentsExpanded] = useState(false)
   const [reactError, setReactError] = useState<string | null>(null)
+  const [commentError, setCommentError] = useState<string | null>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const TaskIcon = iconForChallenge({
     title: item.challengeTitle,
@@ -59,30 +69,33 @@ export function PostCard({ item, userId, onOpenProfile }: Props) {
     el.style.overflowY = el.scrollHeight > max ? 'auto' : 'hidden'
   }
 
+  function applyReactions(next: ReactionSummary[]) {
+    setReactions(next)
+    onEngagementChange?.(item.attemptId, { reactions: next })
+  }
+
   async function react(emoji: string) {
     if (isMine) return
     const previous = reactions
-    cue.react()
-    setPickerOpen(false)
-    setReactError(null)
-    setReactions((cur) => {
-      const existing = cur.find((r) => r.emoji === emoji)
-      if (existing) {
-        return cur
+    const existing = previous.find((r) => r.emoji === emoji)
+    const optimistic = existing
+      ? previous
           .map((r) =>
             r.emoji === emoji
               ? { ...r, mine: !r.mine, count: r.count + (r.mine ? -1 : 1) }
               : r,
           )
           .filter((r) => r.count > 0)
-      }
-      return [...cur, { emoji, count: 1, mine: true }]
-    })
+      : [...previous, { emoji, count: 1, mine: true }]
+    cue.react()
+    setPickerOpen(false)
+    setReactError(null)
+    applyReactions(optimistic)
     try {
       const authoritative = await reactToPost(item.attemptId, emoji)
-      setReactions(authoritative)
+      applyReactions(authoritative)
     } catch (err) {
-      setReactions(previous)
+      applyReactions(previous)
       setReactError(err instanceof Error ? err.message : 'Could not react')
     }
   }
@@ -91,14 +104,19 @@ export function PostCard({ item, userId, onOpenProfile }: Props) {
     const body = draft.trim()
     if (!body || busy) return
     setBusy(true)
+    setCommentError(null)
     try {
       const comment = await commentOnPost(item.attemptId, body)
       cue.tick()
-      setComments((cur) => [...cur, comment])
+      const next = [...comments, comment]
+      setComments(next)
+      onEngagementChange?.(item.attemptId, { comments: next })
       setDraft('')
       requestAnimationFrame(grow)
-    } catch {
-      // Keep the draft so the user can retry.
+    } catch (err) {
+      // Keep the draft so the user can retry, and surface the failure.
+      cue.error()
+      setCommentError(err instanceof Error ? err.message : 'Could not post comment')
     } finally {
       setBusy(false)
     }
@@ -281,6 +299,11 @@ export function PostCard({ item, userId, onOpenProfile }: Props) {
               <Send size={16} strokeWidth={2} />
             </button>
           </form>
+          {commentError ? (
+            <p className="banner error" role="alert">
+              {commentError}
+            </p>
+          ) : null}
         </div>
       </div>
     </article>

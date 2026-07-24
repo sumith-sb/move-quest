@@ -52,7 +52,9 @@ begin
       count(*)::integer as cnt,
       max(w.awarded_at) as last_at
     from public.awards w
-    where w.awarded_at >= date_trunc('week', now())
+    -- Week starts Monday 00:00 UTC, pinned explicitly so it can't drift with
+    -- the DB session timezone (matches the frontend's UTC countdown).
+    where w.awarded_at >= date_trunc('week', now() at time zone 'utc') at time zone 'utc'
     group by w.user_id
   )
   select
@@ -108,7 +110,7 @@ begin
         select sum(w.points)::integer
         from public.awards w
         where w.user_id = pr.id
-          and w.awarded_at >= date_trunc('week', now())
+          and w.awarded_at >= date_trunc('week', now() at time zone 'utc') at time zone 'utc'
       ),
       0
     ) as week_points,
